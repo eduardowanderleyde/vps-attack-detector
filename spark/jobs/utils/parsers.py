@@ -4,10 +4,12 @@ Each parser takes a log line string and returns a structured dict,
 or None if the line cannot be parsed.
 
 Supported formats:
-- auth.log (Linux authentication logs)
+- auth.log (Linux authentication logs, traditional and ISO timestamp)
 - nginx access.log (combined format)
 - nginx error.log
 - Docker JSON logs
+- fail2ban.log
+- Caddy JSON access logs
 """
 
 import json
@@ -15,10 +17,16 @@ import re
 from datetime import datetime
 from typing import Any
 
-# Regex patterns for auth.log
+# Regex patterns for auth.log - traditional BSD syslog format
 AUTH_LOG_BASE = re.compile(
     r"^(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+"
     r"(?P<host>\S+)\s+(?P<service>\w+)\[(?P<pid>\d+)\]:\s+(?P<message>.+)$"
+)
+
+# ISO 8601 timestamp format (systemd-journald / rsyslog modern)
+AUTH_LOG_ISO = re.compile(
+    r'^(?P<iso_timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z))\s+'
+    r'(?P<host>\S+)\s+(?P<service>\w+)\[(?P<pid>\d+)\]:\s+(?P<message>.+)$'
 )
 
 FAILED_PASSWORD = re.compile(
@@ -37,9 +45,46 @@ INVALID_USER = re.compile(
     r"Invalid user (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)"
 )
 
-CONNECTION_CLOSED = re.compile(r"Connection closed by (?P<ip>\S+) port (?P<port>\d+)")
+CONNECTION_CLOSED = re.compile(
+    r"Connection closed by (?:authenticating user \S+ )?(?P<ip>\S+) port (?P<port>\d+)"
+)
 
 DISCONNECT = re.compile(r"Received disconnect from (?P<ip>\S+) port (?P<port>\d+)")
+
+# PAM authentication failure
+PAM_AUTH_FAILURE = re.compile(
+    r'pam_unix\(sshd:auth\): authentication failure;.*rhost=(?P<ip>\S+)(?:\s+user=(?P<username>\S+))?'
+)
+
+# Disconnected from authenticating/invalid user
+DISCONNECTED_AUTH = re.compile(
+    r'Disconnected from (?P<invalid>invalid user )?(?:authenticating user )?(?P<username>\S+) (?P<ip>\S+) port (?P<port>\d+)'
+)
+
+# Disconnecting due to too many failures
+DISCONNECTING_TOO_MANY = re.compile(
+    r'Disconnecting (?:authenticating )?user (?P<username>\S+) (?P<ip>\S+) port (?P<port>\d+): Too many authentication failures'
+)
+
+# Connection reset by
+CONNECTION_RESET = re.compile(
+    r'Connection reset by (?P<ip>\S+) port (?P<port>\d+)'
+)
+
+# Unable to negotiate (key exchange failure)
+KEY_EXCHANGE_FAILURE = re.compile(
+    r'Unable to negotiate with (?P<ip>\S+) port (?P<port>\d+): no matching key exchange'
+)
+
+# Bad protocol version (scanner detection)
+BAD_PROTOCOL = re.compile(
+    r"Bad protocol version identification '.*' from (?P<ip>\S+) port (?P<port>\d+)"
+)
+
+# Maximum authentication attempts exceeded
+MAX_AUTH_ATTEMPTS = re.compile(
+    r'(?:error: )?maximum authentication attempts exceeded for (?:invalid user )?(?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)'
+)
 
 # Regex for nginx access.log (combined format)
 NGINX_ACCESS = re.compile(
@@ -60,6 +105,8 @@ NGINX_ERROR_CLIENT = re.compile(r"client:\s*(?P<ip>\S+)")
 def parse_auth_log(line: str) -> dict[str, Any] | None:
     """Parse a line from auth.log into structured fields.
 
+    Supports both traditional BSD syslog format and ISO 8601 timestamps.
+
     Args:
         line: Raw line from auth.log
 
@@ -71,25 +118,51 @@ def parse_auth_log(line: str) -> dict[str, Any] | None:
     if not line or not line.strip():
         return None
 
-    base_match = AUTH_LOG_BASE.match(line)
-    if not base_match:
-        return None
+    timestamp = None
+    host = None
+    service = None
+    pid = None
+    message = None
 
-    groups = base_match.groupdict()
-    message = groups["message"]
+    iso_match = AUTH_LOG_ISO.match(line)
+    if iso_match:
+        groups = iso_match.groupdict()
+        message = groups["message"]
+        host = groups["host"]
+        service = groups["service"]
+        pid = int(groups["pid"])
 
-    current_year = datetime.now().year
-    timestamp_str = f"{groups['month']} {groups['day']} {groups['time']} {current_year}"
-    try:
-        timestamp = datetime.strptime(timestamp_str, "%b %d %H:%M:%S %Y")
-    except ValueError:
-        return None
+        iso_str = groups["iso_timestamp"]
+        try:
+            if iso_str.endswith("Z"):
+                iso_str = iso_str[:-1] + "+00:00"
+            timestamp = datetime.fromisoformat(iso_str)
+            timestamp = timestamp.replace(tzinfo=None)
+        except ValueError:
+            return None
+    else:
+        base_match = AUTH_LOG_BASE.match(line)
+        if not base_match:
+            return None
+
+        groups = base_match.groupdict()
+        message = groups["message"]
+        host = groups["host"]
+        service = groups["service"]
+        pid = int(groups["pid"])
+
+        current_year = datetime.now().year
+        timestamp_str = f"{groups['month']} {groups['day']} {groups['time']} {current_year}"
+        try:
+            timestamp = datetime.strptime(timestamp_str, "%b %d %H:%M:%S %Y")
+        except ValueError:
+            return None
 
     result = {
         "timestamp": timestamp,
-        "host": groups["host"],
-        "service": groups["service"],
-        "pid": int(groups["pid"]),
+        "host": host,
+        "service": service,
+        "pid": pid,
         "message": message,
         "event_type": "unknown",
         "source_ip": None,
@@ -124,8 +197,49 @@ def parse_auth_log(line: str) -> dict[str, Any] | None:
         result["port"] = int(match.group("port"))
         result["invalid_user"] = True
 
+    elif match := MAX_AUTH_ATTEMPTS.search(message):
+        result["event_type"] = "max_auth_attempts"
+        result["username"] = match.group("username")
+        result["source_ip"] = match.group("ip")
+        result["port"] = int(match.group("port"))
+
+    elif match := DISCONNECTING_TOO_MANY.search(message):
+        result["event_type"] = "too_many_failures"
+        result["username"] = match.group("username")
+        result["source_ip"] = match.group("ip")
+        result["port"] = int(match.group("port"))
+
+    elif match := DISCONNECTED_AUTH.search(message):
+        result["event_type"] = "disconnected_authenticating"
+        result["username"] = match.group("username")
+        result["source_ip"] = match.group("ip")
+        result["port"] = int(match.group("port"))
+        result["invalid_user"] = match.group("invalid") is not None
+
+    elif match := PAM_AUTH_FAILURE.search(message):
+        result["event_type"] = "pam_auth_failure"
+        result["source_ip"] = match.group("ip")
+        username = match.group("username")
+        if username:
+            result["username"] = username
+
+    elif match := CONNECTION_RESET.search(message):
+        result["event_type"] = "connection_reset"
+        result["source_ip"] = match.group("ip")
+        result["port"] = int(match.group("port"))
+
     elif match := CONNECTION_CLOSED.search(message):
         result["event_type"] = "connection_closed"
+        result["source_ip"] = match.group("ip")
+        result["port"] = int(match.group("port"))
+
+    elif match := KEY_EXCHANGE_FAILURE.search(message):
+        result["event_type"] = "key_exchange_failure"
+        result["source_ip"] = match.group("ip")
+        result["port"] = int(match.group("port"))
+
+    elif match := BAD_PROTOCOL.search(message):
+        result["event_type"] = "bad_protocol"
         result["source_ip"] = match.group("ip")
         result["port"] = int(match.group("port"))
 
