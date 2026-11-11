@@ -3,6 +3,10 @@
 
 Produces a text file with IPs to optionally block with fail2ban/ufw.
 NEVER applies blocks automatically - for manual review only.
+
+Integrates with fail2ban (ADR-011):
+- Reads fail2ban.log to identify already-banned IPs
+- Skips already-banned IPs from blocklist (no duplicates)
 """
 
 import argparse
@@ -13,11 +17,55 @@ from datetime import datetime
 import pandas as pd
 
 
+def get_fail2ban_banned_ips(fail2ban_log_path: str | None = None) -> set[str]:
+    """Get set of IPs currently banned by fail2ban.
+    
+    Parses fail2ban.log to find Ban/Unban events and determines
+    which IPs are currently banned.
+    
+    Args:
+        fail2ban_log_path: Path to fail2ban.log (default: /var/log/fail2ban.log)
+    
+    Returns:
+        Set of currently banned IP addresses
+    """
+    if fail2ban_log_path is None:
+        fail2ban_log_path = os.getenv("HOST_FAIL2BAN_LOG", "/var/log/fail2ban.log")
+    
+    if not os.path.exists(fail2ban_log_path):
+        return set()
+    
+    try:
+        from spark.jobs.utils.parsers import parse_fail2ban_log
+    except ImportError:
+        return set()
+    
+    ban_status = {}
+    
+    try:
+        with open(fail2ban_log_path, "r") as f:
+            for line in f:
+                parsed = parse_fail2ban_log(line.strip())
+                if parsed and parsed.get("action") in ("ban", "unban", "restore_ban"):
+                    ip = parsed["source_ip"]
+                    action = parsed["action"]
+                    if action in ("ban", "restore_ban"):
+                        ban_status[ip] = True
+                    elif action == "unban":
+                        ban_status[ip] = False
+    except (IOError, PermissionError):
+        return set()
+    
+    return {ip for ip, is_banned in ban_status.items() if is_banned}
+
+
 def generate_blocklist(
     alerts_path: str,
     output_path: str,
     min_severity: str = "high",
     min_alerts: int = 1,
+    skip_fail2ban: bool = True,
+    fail2ban_log_path: str | None = None,
 ) -> int:
     """Generate blocklist from alerts.
 
@@ -26,6 +74,8 @@ def generate_blocklist(
         output_path: Output file path
         min_severity: Minimum severity to include (critical, high, medium, low)
         min_alerts: Minimum number of alerts per IP to include
+        skip_fail2ban: If True, skip IPs already banned by fail2ban (ADR-011)
+        fail2ban_log_path: Path to fail2ban.log for ban status
 
     Returns:
         Number of IPs in blocklist
@@ -47,8 +97,19 @@ def generate_blocklist(
         print("No alerts found")
         return 0
 
+    # Get fail2ban banned IPs (ADR-011)
+    already_banned = set()
+    if skip_fail2ban:
+        already_banned = get_fail2ban_banned_ips(fail2ban_log_path)
+        if already_banned:
+            print(f"Skipping {len(already_banned)} IPs already banned by fail2ban")
+
     df["severity_level"] = df["severity"].map(severity_order)
     filtered = df[df["severity_level"] <= min_level]
+    
+    # Exclude already-banned IPs
+    if already_banned:
+        filtered = filtered[~filtered["source_ip"].isin(already_banned)]
 
     ip_counts = (
         filtered.groupby("source_ip")
@@ -121,6 +182,16 @@ def main():
         default=1,
         help="Minimum alerts per IP to include",
     )
+    parser.add_argument(
+        "--no-skip-fail2ban",
+        action="store_true",
+        help="Don't skip IPs already banned by fail2ban",
+    )
+    parser.add_argument(
+        "--fail2ban-log",
+        default=None,
+        help="Path to fail2ban.log (default: /var/log/fail2ban.log)",
+    )
 
     args = parser.parse_args()
 
@@ -129,6 +200,8 @@ def main():
         args.output_path,
         args.min_severity,
         args.min_alerts,
+        skip_fail2ban=not args.no_skip_fail2ban,
+        fail2ban_log_path=args.fail2ban_log,
     )
 
     sys.exit(0 if count > 0 else 1)

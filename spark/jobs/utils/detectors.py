@@ -403,14 +403,21 @@ def detect_rate_spike(
 def detect_success_after_failure(
     df: pd.DataFrame,
     config: dict[str, Any] | None = None,
+    trusted_cidrs: list[str] | None = None,
 ) -> pd.DataFrame:
     """Detect successful login after multiple failures.
 
     This is a high-severity indicator of possible credential compromise.
+    
+    Trusted IP filtering (ADR-012):
+    - Logins via publickey from trusted CIDRs are NOT flagged
+    - This reduces false positives for legitimate operator access
 
     Args:
         df: DataFrame with SSH events
         config: Detection configuration
+        trusted_cidrs: List of CIDR strings for trusted IPs (e.g., ["192.168.1.0/24"])
+                       If None, reads from TRUSTED_IP_CIDRS env var
 
     Returns:
         DataFrame of alerts
@@ -428,6 +435,21 @@ def detect_success_after_failure(
     if df.empty or "event_type" not in df.columns:
         return empty_alerts_df()
 
+    # Load trusted networks for filtering
+    trusted_networks = []
+    if trusted_cidrs:
+        try:
+            from spark.jobs.utils.trusted_ips import parse_trusted_cidrs
+            trusted_networks = parse_trusted_cidrs(",".join(trusted_cidrs))
+        except ImportError:
+            pass
+    elif os.getenv("TRUSTED_IP_CIDRS"):
+        try:
+            from spark.jobs.utils.trusted_ips import get_trusted_networks_from_env
+            trusted_networks = get_trusted_networks_from_env()
+        except ImportError:
+            pass
+
     df = df.sort_values("timestamp")
 
     success_types = ["accepted_password", "accepted_publickey"]
@@ -437,6 +459,17 @@ def detect_success_after_failure(
     for _, success in successes.iterrows():
         ip = success["source_ip"]
         success_time = success["timestamp"]
+        event_type = success["event_type"]
+        
+        # Skip trusted IPs with publickey auth (ADR-012)
+        if trusted_networks and event_type == "accepted_publickey":
+            try:
+                from spark.jobs.utils.trusted_ips import is_trusted_ip
+                if is_trusted_ip(ip, trusted_networks):
+                    continue
+            except ImportError:
+                pass
+        
         window_start = success_time - timedelta(minutes=window_minutes)
         
         prior_failures = failures[
