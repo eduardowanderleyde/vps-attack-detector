@@ -89,3 +89,40 @@ def sample_docker_json_lines():
         "malformed_json": "not valid json at all",
         "empty_log": '{"log":"","stream":"stdout","time":"2024-11-10T14:30:04.567890123Z"}',
     }
+
+
+@pytest.fixture
+def sample_caddy_json_lines():
+    """Sample Caddy JSON access log lines (Ticket 103).
+    
+    Caddy produces structured JSON logs with request/response details.
+    Format documented at: https://caddyserver.com/docs/caddyfile/directives/log
+    """
+    return {
+        "normal_200": '{"level":"info","ts":1699624200.123456,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"192.168.1.1","remote_port":"54321","proto":"HTTP/2.0","method":"GET","host":"example.com","uri":"/index.html","headers":{"User-Agent":["Mozilla/5.0"]}},"user_id":"","duration":0.001234,"size":1234,"status":200,"resp_headers":{"Content-Type":["text/html"]}}',
+        "not_found_404": '{"level":"info","ts":1699624201.234567,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"203.0.113.50","remote_port":"54322","proto":"HTTP/1.1","method":"GET","host":"example.com","uri":"/wp-admin","headers":{"User-Agent":["Mozilla/5.0"]}},"duration":0.000123,"size":162,"status":404}',
+        "scanner_ua": '{"level":"info","ts":1699624202.345678,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"45.33.32.156","remote_port":"54323","proto":"HTTP/1.1","method":"GET","host":"example.com","uri":"/.env","headers":{"User-Agent":["sqlmap/1.5"]}},"duration":0.000089,"size":162,"status":404}',
+        "post_request": '{"level":"info","ts":1699624203.456789,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"10.0.0.100","remote_port":"54324","proto":"HTTP/1.1","method":"POST","host":"api.example.com","uri":"/api/login","headers":{"User-Agent":["curl/7.68.0"],"Referer":["https://example.com"]}},"duration":0.005678,"size":89,"status":200}',
+        "ipv6": '{"level":"info","ts":1699624204.567890,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"::1","remote_port":"54325","proto":"HTTP/1.1","method":"GET","host":"localhost","uri":"/health","headers":{"User-Agent":["kube-probe/1.20"]}},"duration":0.000045,"size":2,"status":200}',
+        "server_error": '{"level":"info","ts":1699624205.678901,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"192.168.1.50","remote_port":"54326","proto":"HTTP/1.1","method":"GET","host":"example.com","uri":"/api/data","headers":{"User-Agent":["Chrome/90.0"]}},"duration":1.234567,"size":0,"status":500}',
+        "nikto_scan": '{"level":"info","ts":1699624206.789012,"logger":"http.log.access","msg":"handled request","request":{"remote_ip":"198.51.100.1","remote_port":"54327","proto":"HTTP/1.1","method":"GET","host":"example.com","uri":"/phpmyadmin","headers":{"User-Agent":["Nikto/2.1.6"]}},"duration":0.000067,"size":162,"status":404}',
+        "malformed_json": "not valid json at all",
+        "missing_request": '{"level":"info","ts":1699624207.890123,"logger":"http.log.access","msg":"handled request","duration":0.001}',
+    }
+
+
+@pytest.fixture
+def sample_fail2ban_lines():
+    """Sample fail2ban.log lines (Ticket 104).
+    
+    fail2ban logs Ban/Unban actions for each jail.
+    """
+    return {
+        "ban_sshd": "2024-11-10 14:30:00,123 fail2ban.actions        [12345]: NOTICE  [sshd] Ban 203.0.113.50",
+        "unban_sshd": "2024-11-10 15:30:00,456 fail2ban.actions        [12345]: NOTICE  [sshd] Unban 203.0.113.50",
+        "ban_recidive": "2024-11-10 14:35:00,789 fail2ban.actions        [12345]: NOTICE  [recidive] Ban 198.51.100.10",
+        "found": "2024-11-10 14:29:50,012 fail2ban.filter          [12345]: INFO    [sshd] Found 203.0.113.50 - 2024-11-10 14:29:50",
+        "already_banned": "2024-11-10 14:30:05,345 fail2ban.actions        [12345]: NOTICE  [sshd] 203.0.113.50 already banned",
+        "malformed": "Not a valid fail2ban log",
+        "restore_ban": "2024-11-10 12:00:00,000 fail2ban.actions        [12345]: NOTICE  [sshd] Restore Ban 192.0.2.100",
+    }
