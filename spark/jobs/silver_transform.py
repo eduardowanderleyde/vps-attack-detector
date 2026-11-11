@@ -292,7 +292,8 @@ def main():
         )
         total = sum(counts.values())
         print(f"Total transformed: {total} events")
-        sys.exit(0 if total > 0 else 1)
+        # no new events is a normal hour; a failed Spark job raises and exits non-zero
+        sys.exit(0)
     finally:
         spark.stop()
 

@@ -1,0 +1,11 @@
+{
+  "checkpoints": {
+    "/opt/airflow/logs_input/fail2ban.log": {
+      "file_path": "/opt/airflow/logs_input/fail2ban.log",
+      "byte_offset": 154656,
+      "inode": 66,
+      "last_line": "2026-11-11 00:03:31,748 fail2ban.filter         [630]: INFO    [sshd] Found 125.163.181.224 - 2026-1",
+      "updated_at": "2026-11-11T03:17:23.096467+00:00"
+    }
+  }
+}

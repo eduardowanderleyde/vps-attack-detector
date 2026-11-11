@@ -191,7 +191,7 @@ def ingest_and_detect():
             --bronze-path "{DATA_PATH}/bronze" \
             --silver-path "{DATA_PATH}/silver" \
             --event-date "{{{{ ds }}}}" \
-            --geoip-db "{GEOIP_DB_PATH}" || true
+            --geoip-db "{GEOIP_DB_PATH}"
         """,
     )
 
