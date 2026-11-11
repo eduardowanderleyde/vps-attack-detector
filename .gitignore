@@ -79,6 +79,7 @@ airflow/*.pid
 
 # Docker
 *.log
+!data/sample_logs/*.log
 
 # OS files
 .DS_Store

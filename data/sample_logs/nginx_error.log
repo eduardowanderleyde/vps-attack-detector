@@ -1,0 +1,8 @@
+2024/11/10 08:10:03 [error] 1234#1234: *5678 open() "/var/www/html/.env" failed (2: No such file or directory), client: 203.0.113.100, server: example.com, request: "GET /.env HTTP/1.1", host: "example.com"
+2024/11/10 08:10:04 [error] 1234#1234: *5679 open() "/var/www/html/.git/config" failed (2: No such file or directory), client: 203.0.113.100, server: example.com, request: "GET /.git/config HTTP/1.1", host: "example.com"
+2024/11/10 08:10:05 [error] 1234#1234: *5680 open() "/var/www/html/phpmyadmin" failed (2: No such file or directory), client: 203.0.113.100, server: example.com, request: "GET /phpmyadmin HTTP/1.1", host: "example.com"
+2024/11/10 08:15:02 [error] 1234#1234: *5681 upstream timed out (110: Connection timed out) while connecting to upstream, client: 192.168.1.1, server: example.com, request: "GET /api/slow HTTP/1.1", upstream: "http://127.0.0.1:8000/api/slow"
+2024/11/10 08:20:00 [warn] 1234#1234: *5682 an upstream response is buffered to a temporary file /var/cache/nginx/proxy_temp/1/00/0000000001
+2024/11/10 08:30:00 [error] 1234#1234: *5683 recv() failed (104: Connection reset by peer) while reading response header from upstream, client: 10.0.0.100, server: example.com, request: "POST /api/webhook HTTP/1.1"
+2024/11/10 09:00:00 [notice] 1234#1234: signal process started
+2024/11/10 09:00:01 [notice] 1234#1234: using the "epoll" event method

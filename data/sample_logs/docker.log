@@ -1,0 +1,10 @@
+{"log":"2024-11-10 08:00:00 INFO Starting application...\n","stream":"stdout","time":"2024-11-10T08:00:00.123456789Z"}
+{"log":"2024-11-10 08:00:01 INFO Connected to database\n","stream":"stdout","time":"2024-11-10T08:00:01.234567890Z"}
+{"log":"2024-11-10 08:00:02 INFO Server listening on port 8000\n","stream":"stdout","time":"2024-11-10T08:00:02.345678901Z"}
+{"log":"2024-11-10 08:05:00 INFO Received health check request\n","stream":"stdout","time":"2024-11-10T08:05:00.456789012Z"}
+{"log":"2024-11-10 08:15:00 WARNING High memory usage detected: 85%\n","stream":"stderr","time":"2024-11-10T08:15:00.567890123Z"}
+{"log":"2024-11-10 08:30:00 ERROR Connection to upstream failed: timeout\n","stream":"stderr","time":"2024-11-10T08:30:00.678901234Z"}
+{"log":"2024-11-10 08:30:01 INFO Retrying connection...\n","stream":"stdout","time":"2024-11-10T08:30:01.789012345Z"}
+{"log":"2024-11-10 08:30:05 INFO Connection restored\n","stream":"stdout","time":"2024-11-10T08:30:05.890123456Z"}
+{"log":"2024-11-10 09:00:00 INFO Processing webhook from GitHub\n","stream":"stdout","time":"2024-11-10T09:00:00.901234567Z"}
+{"log":"2024-11-10 09:00:01 INFO Webhook processed successfully\n","stream":"stdout","time":"2024-11-10T09:00:01.012345678Z"}
