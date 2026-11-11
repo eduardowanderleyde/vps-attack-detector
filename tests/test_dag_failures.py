@@ -21,6 +21,12 @@ def test_silver_job_exits_zero_when_there_is_nothing_new():
     assert not re.search(r"sys\.exit\(0 if total > 0 else 1\)", source)
 
 
+def test_caddy_ingest_accepts_the_host_log_directory():
+    source = Path(DAG_FILE).read_text(encoding="utf-8")
+    assert '[ -d "{LOGS_INPUT_PATH}/caddy" ]' in source
+    assert "CADDY_CHECKPOINT" in source
+
+
 def test_ingest_dag_runs_one_spark_job_at_a_time():
     # every task starts its own Spark JVM; six at once were OOM-killed in the scheduler
     source = Path(DAG_FILE).read_text(encoding="utf-8")

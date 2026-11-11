@@ -159,15 +159,21 @@ def ingest_and_detect():
         task_id="ingest_caddy_logs",
         bash_command=f"""
         if [ -f "{LOGS_INPUT_PATH}/caddy.json" ]; then
-            cd {SPARK_JOBS_PATH} && python bronze_ingest.py \
-                --input-path "{LOGS_INPUT_PATH}/caddy.json" \
-                --output-path "{DATA_PATH}/bronze" \
-                --log-type caddy \
-                --ingestion-date "{{{{ ds }}}}" \
-                --checkpoint-path "{CHECKPOINT_PATH}/caddy.json"
+            CADDY_INPUT="{LOGS_INPUT_PATH}/caddy.json"
+            CADDY_CHECKPOINT="{CHECKPOINT_PATH}/caddy.json"
+        elif [ -d "{LOGS_INPUT_PATH}/caddy" ]; then
+            CADDY_INPUT="{LOGS_INPUT_PATH}/caddy"
+            CADDY_CHECKPOINT="{CHECKPOINT_PATH}/caddy"
         else
-            echo "No caddy.json found, skipping"
+            echo "No caddy.json or caddy/ directory found, skipping"
+            exit 0
         fi
+        cd {SPARK_JOBS_PATH} && python bronze_ingest.py \
+            --input-path "$CADDY_INPUT" \
+            --output-path "{DATA_PATH}/bronze" \
+            --log-type caddy \
+            --ingestion-date "{{{{ ds }}}}" \
+            --checkpoint-path "$CADDY_CHECKPOINT"
         """,
     )
 

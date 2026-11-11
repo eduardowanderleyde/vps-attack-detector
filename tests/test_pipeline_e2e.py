@@ -162,6 +162,42 @@ def test_sample_logs_flow_through_bronze_silver_gold(spark, tmp_path, monkeypatc
     assert "198.51.100.10" not in still_banned
 
 
+def test_caddy_directory_gets_one_checkpoint_per_log(spark, tmp_path):
+    """Rotated Caddy logs under /var/log/caddy are ingested, archives are not."""
+    from spark.jobs.bronze_ingest import ingest_logs
+
+    caddy = tmp_path / "caddy"
+    caddy.mkdir()
+    line = (SAMPLE_LOGS / "caddy.json").read_text().splitlines()[0]
+    (caddy / "access.log").write_text(line + "\n")
+    (caddy / "access.log.1").write_text(line + "\n")
+    (caddy / "access.log.2.gz").write_text("compressed")
+    checkpoint_dir = tmp_path / "checkpoints" / "caddy"
+
+    first = ingest_logs(
+        spark,
+        str(caddy),
+        str(tmp_path / "bronze"),
+        "caddy",
+        "2024-11-10",
+        str(checkpoint_dir),
+    )
+    second = ingest_logs(
+        spark,
+        str(caddy),
+        str(tmp_path / "bronze"),
+        "caddy",
+        "2024-11-10",
+        str(checkpoint_dir),
+    )
+
+    assert first == 2
+    assert second == 0
+    assert (checkpoint_dir / "access.log.json").is_file()
+    assert (checkpoint_dir / "access.log.1.json").is_file()
+    assert not list(checkpoint_dir.glob("*.gz.json"))
+
+
 def test_checkpoint_does_not_replay_lines(spark, tmp_path):
     """A second ingest of an unchanged file writes nothing and keeps the checkpoint."""
     from spark.jobs.bronze_ingest import ingest_logs

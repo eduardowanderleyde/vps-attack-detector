@@ -134,16 +134,19 @@ make up
 docker compose up -d
 ```
 
-### 3. Execute o demo
+### 3. Veja o dashboard com os logs de exemplo
+
+Sem Docker, no próprio checkout:
 
 ```bash
-make demo
+make view
 ```
 
-Isso irá:
-1. Iniciar todos os serviços
-2. Executar o pipeline com os logs de exemplo
-3. Gerar alertas no dashboard
+Isso gera `data/gold` a partir de `data/sample_logs` e abre o dashboard em
+http://localhost:8501. O período padrão cobre todas as datas dos alertas
+(SSH recente e HTTP de 2024) e a tela mostra quais IPs o fail2ban já baniu.
+
+Só os dados, sem subir o servidor: `make view-data`.
 
 ### 4. Acesse as interfaces
 
@@ -314,9 +317,10 @@ docker compose exec airflow-scheduler python -c "import airflow.dags.ingest_and_
 
 ### Dashboard sem dados
 
-1. Verifique se o DAG `ingest_and_detect` foi executado
-2. Verifique se há dados em `data/gold/alerts/`
-3. Confira os logs: `docker compose logs dashboard`
+1. Localmente, sem Docker: `make view-data` e abra com `DATA_PATH=./data python3 -m streamlit run dashboard/app.py`
+2. No VPS, verifique se o DAG `ingest_and_detect` foi executado
+3. Verifique se há dados em `data/gold/alerts/`
+4. Confira os logs: `docker compose logs dashboard`
 
 ### Memória insuficiente
 
