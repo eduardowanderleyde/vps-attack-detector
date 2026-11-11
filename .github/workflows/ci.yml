@@ -18,17 +18,16 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: |
+            requirements/spark.txt
+            requirements/airflow.txt
+            requirements/dashboard.txt
       
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov ruff
+          pip install pytest pytest-cov
           pip install -r requirements/spark.txt
-      
-      - name: Lint with Ruff
-        run: |
-          ruff check --output-format=github .
-        continue-on-error: true
       
       - name: Run tests
         run: |
@@ -52,8 +51,6 @@ jobs:
       
       - name: Check formatting
         run: ruff format --check .
-        continue-on-error: true
       
       - name: Check linting
         run: ruff check .
-        continue-on-error: true
