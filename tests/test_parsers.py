@@ -12,6 +12,8 @@ from spark.jobs.utils.parsers import (
     parse_nginx_access,
     parse_nginx_error,
     parse_docker_json,
+    parse_caddy_json,
+    parse_fail2ban_log,
 )
 
 
@@ -214,3 +216,141 @@ class TestDockerJsonParser:
 
         assert result is not None
         assert result["message"] == ""
+
+
+class TestCaddyJsonParser:
+    """Tests for Caddy JSON access log parser (Ticket 103)."""
+
+    def test_parse_normal_200(self, sample_caddy_json_lines):
+        """Normal 200 response should extract all fields."""
+        result = parse_caddy_json(sample_caddy_json_lines["normal_200"])
+
+        assert result is not None
+        assert result["source_ip"] == "192.168.1.1"
+        assert result["method"] == "GET"
+        assert result["path"] == "/index.html"
+        assert result["status"] == 200
+        assert result["size"] == 1234
+        assert "Mozilla" in result["user_agent"]
+        assert isinstance(result["timestamp"], datetime)
+
+    def test_parse_404_request(self, sample_caddy_json_lines):
+        """404 responses should be captured with path."""
+        result = parse_caddy_json(sample_caddy_json_lines["not_found_404"])
+
+        assert result is not None
+        assert result["source_ip"] == "203.0.113.50"
+        assert result["path"] == "/wp-admin"
+        assert result["status"] == 404
+
+    def test_parse_scanner_user_agent(self, sample_caddy_json_lines):
+        """Scanner user agents should be captured."""
+        result = parse_caddy_json(sample_caddy_json_lines["scanner_ua"])
+
+        assert result is not None
+        assert result["path"] == "/.env"
+        assert "sqlmap" in result["user_agent"]
+
+    def test_parse_post_request(self, sample_caddy_json_lines):
+        """POST requests should capture method and referer."""
+        result = parse_caddy_json(sample_caddy_json_lines["post_request"])
+
+        assert result is not None
+        assert result["method"] == "POST"
+        assert result["path"] == "/api/login"
+        assert result["referer"] == "https://example.com"
+
+    def test_parse_ipv6_address(self, sample_caddy_json_lines):
+        """IPv6 addresses should be parsed correctly."""
+        result = parse_caddy_json(sample_caddy_json_lines["ipv6"])
+
+        assert result is not None
+        assert result["source_ip"] == "::1"
+
+    def test_parse_server_error(self, sample_caddy_json_lines):
+        """Server errors should be captured."""
+        result = parse_caddy_json(sample_caddy_json_lines["server_error"])
+
+        assert result is not None
+        assert result["status"] == 500
+        assert result["duration"] > 1.0
+
+    def test_parse_nikto_scan(self, sample_caddy_json_lines):
+        """Nikto scanner should be detected."""
+        result = parse_caddy_json(sample_caddy_json_lines["nikto_scan"])
+
+        assert result is not None
+        assert "Nikto" in result["user_agent"]
+        assert result["path"] == "/phpmyadmin"
+
+    def test_parse_malformed_returns_none(self, sample_caddy_json_lines):
+        """Malformed JSON should return None."""
+        result = parse_caddy_json(sample_caddy_json_lines["malformed_json"])
+        assert result is None
+
+    def test_parse_missing_request_returns_none(self, sample_caddy_json_lines):
+        """JSON without request object should return None."""
+        result = parse_caddy_json(sample_caddy_json_lines["missing_request"])
+        assert result is None
+
+
+class TestFail2banParser:
+    """Tests for fail2ban.log parser (Ticket 104)."""
+
+    def test_parse_ban_event(self, sample_fail2ban_lines):
+        """Ban events should extract IP and jail."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["ban_sshd"])
+
+        assert result is not None
+        assert result["action"] == "ban"
+        assert result["jail"] == "sshd"
+        assert result["source_ip"] == "203.0.113.50"
+        assert isinstance(result["timestamp"], datetime)
+
+    def test_parse_unban_event(self, sample_fail2ban_lines):
+        """Unban events should extract IP and jail."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["unban_sshd"])
+
+        assert result is not None
+        assert result["action"] == "unban"
+        assert result["jail"] == "sshd"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_parse_recidive_ban(self, sample_fail2ban_lines):
+        """Recidive jail bans should be captured."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["ban_recidive"])
+
+        assert result is not None
+        assert result["action"] == "ban"
+        assert result["jail"] == "recidive"
+        assert result["source_ip"] == "198.51.100.10"
+
+    def test_parse_found_event(self, sample_fail2ban_lines):
+        """Found events (pre-ban) should be captured."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["found"])
+
+        assert result is not None
+        assert result["action"] == "found"
+        assert result["jail"] == "sshd"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_parse_already_banned(self, sample_fail2ban_lines):
+        """Already banned events should be captured."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["already_banned"])
+
+        assert result is not None
+        assert result["action"] == "already_banned"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_parse_restore_ban(self, sample_fail2ban_lines):
+        """Restore Ban (on startup) should be captured."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["restore_ban"])
+
+        assert result is not None
+        assert result["action"] == "restore_ban"
+        assert result["source_ip"] == "192.0.2.100"
+
+    def test_parse_malformed_returns_none(self, sample_fail2ban_lines):
+        """Malformed lines should return None."""
+        result = parse_fail2ban_log(sample_fail2ban_lines["malformed"])
+        assert result is None
