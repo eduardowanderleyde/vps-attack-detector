@@ -6,10 +6,10 @@ allowing the pipeline to continue from where it left off after interruptions.
 
 import json
 import os
-from dataclasses import dataclass, asdict
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Iterator
+from typing import Self
 
 
 @dataclass
@@ -221,7 +221,7 @@ class IncrementalReader:
         self._last_line: str | None = None
         self._lines_read = 0
 
-    def __enter__(self) -> "IncrementalReader":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

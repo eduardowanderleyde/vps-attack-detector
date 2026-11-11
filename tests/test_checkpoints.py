@@ -3,20 +3,20 @@
 Validates checkpoint creation, loading, validation, and incremental reading.
 """
 
-import json
 import os
-import pytest
 import tempfile
+
+import pytest
 
 from spark.jobs.utils.checkpoints import (
     FileCheckpoint,
-    get_file_inode,
-    load_checkpoint,
-    save_checkpoint,
-    is_checkpoint_valid,
-    read_file_incremental,
-    create_checkpoint,
     IncrementalReader,
+    create_checkpoint,
+    get_file_inode,
+    is_checkpoint_valid,
+    load_checkpoint,
+    read_file_incremental,
+    save_checkpoint,
 )
 
 
