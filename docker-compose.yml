@@ -1,6 +1,8 @@
 version: '3.8'
 
 x-airflow-common: &airflow-common
+  # run as the host user (official Airflow pattern) so the jobs can write ./data; set AIRFLOW_UID=$(id -u) in .env
+  user: "${AIRFLOW_UID:-50000}:0"
   build:
     context: .
     dockerfile: Dockerfile.airflow
