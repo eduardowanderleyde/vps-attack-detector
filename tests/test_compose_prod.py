@@ -6,8 +6,9 @@ Validates docker-compose.prod.yml according to ADRs 006, 007, 008.
 import os
 import shutil
 import subprocess
-import yaml
+
 import pytest
+import yaml
 
 COMPOSE_FILE = "docker-compose.yml"
 COMPOSE_PROD_FILE = "docker-compose.prod.yml"
@@ -36,6 +37,7 @@ def load_compose_config() -> dict:
         cwd=PROJECT_ROOT,
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         pytest.skip(f"docker compose config failed: {result.stderr}")
@@ -196,7 +198,13 @@ class TestProdYamlStructure:
         """Prod override should have expected service overrides."""
         config = load_prod_yaml()
         services = config.get("services", {})
-        expected = ["postgres", "airflow-webserver", "airflow-scheduler", "spark", "dashboard"]
+        expected = [
+            "postgres",
+            "airflow-webserver",
+            "airflow-scheduler",
+            "spark",
+            "dashboard",
+        ]
         for svc in expected:
             assert svc in services, f"Missing service override: {svc}"
 
@@ -205,7 +213,7 @@ class TestProdYamlStructure:
         config = load_prod_yaml()
         spark = config.get("services", {}).get("spark", {})
         volumes = spark.get("volumes", [])
-        
+
         host_log_mounts = [v for v in volumes if "/host-logs" in str(v)]
         assert len(host_log_mounts) >= 3, (
             f"Expected at least 3 host log mounts (auth, fail2ban, caddy), got {len(host_log_mounts)}"
@@ -221,7 +229,7 @@ class TestProdYamlStructure:
         """Volumes should have explicit names."""
         config = load_prod_yaml()
         volumes = config.get("volumes", {})
-        
+
         for name, vol_config in volumes.items():
             assert vol_config is not None, f"Volume {name} has no config"
             assert "name" in vol_config, f"Volume {name} missing explicit name"
@@ -233,7 +241,7 @@ class TestProdYamlStructure:
         """Network should have explicit name."""
         config = load_prod_yaml()
         networks = config.get("networks", {})
-        
+
         for name, net_config in networks.items():
             assert net_config is not None, f"Network {name} has no config"
             assert "name" in net_config, f"Network {name} missing explicit name"
@@ -241,7 +249,7 @@ class TestProdYamlStructure:
     def test_webserver_port_is_localhost(self):
         """Web-facing ports should bind to localhost."""
         config = load_prod_yaml()
-        
+
         for svc_name in ["airflow-webserver", "dashboard"]:
             svc = config.get("services", {}).get(svc_name, {})
             ports = svc.get("ports", [])
@@ -255,13 +263,15 @@ class TestProdYamlStructure:
         config = load_prod_yaml()
         spark = config.get("services", {}).get("spark", {})
         env = spark.get("environment", [])
-        
+
         env_dict = {}
         for item in env:
             if "=" in item:
                 key, val = item.split("=", 1)
                 env_dict[key] = val
-        
+
         assert "HOST_LOG_PATH" in env_dict, "Spark missing HOST_LOG_PATH env"
         assert "TRUSTED_IP_CIDRS" in env_dict, "Spark missing TRUSTED_IP_CIDRS env"
-        assert "DATA_RETENTION_DAYS" in env_dict, "Spark missing DATA_RETENTION_DAYS env"
+        assert "DATA_RETENTION_DAYS" in env_dict, (
+            "Spark missing DATA_RETENTION_DAYS env"
+        )
