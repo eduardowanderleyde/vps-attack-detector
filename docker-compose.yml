@@ -18,6 +18,7 @@ x-airflow-common: &airflow-common
     - DETECTION_CONFIG_PATH=/opt/airflow/config/detection_rules.yaml
     - DATA_PATH=/opt/airflow/data
     - SPARK_HOME=/opt/spark
+    - SPARK_JOBS_PATH=/opt/airflow/repo/spark/jobs
     # Optional remote log sync
     - REMOTE_HOST=${REMOTE_HOST:-}
     - REMOTE_USER=${REMOTE_USER:-}
@@ -30,7 +31,9 @@ x-airflow-common: &airflow-common
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
-    - ./spark/jobs:/opt/airflow/spark_jobs
+    # the jobs import spark.jobs.utils from the repo root (3 levels above each job file),
+    # so keep the repo layout: /opt/airflow/repo/spark/jobs
+    - ./spark:/opt/airflow/repo/spark
     - ./config:/opt/airflow/config
     - ./data:/opt/airflow/data
     - ./scripts:/opt/airflow/scripts
