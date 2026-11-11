@@ -87,7 +87,7 @@ class TestAuthLogParser:
 
 class TestAuthLogParserV2:
     """Tests for real-world auth.log formats (Ticket 102).
-    
+
     Validates parsing of production VPS log formats including:
     - ISO timestamp format
     - PAM authentication failures

@@ -25,8 +25,8 @@ AUTH_LOG_BASE = re.compile(
 
 # ISO 8601 timestamp format (systemd-journald / rsyslog modern)
 AUTH_LOG_ISO = re.compile(
-    r'^(?P<iso_timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z))\s+'
-    r'(?P<host>\S+)\s+(?P<service>\w+)\[(?P<pid>\d+)\]:\s+(?P<message>.+)$'
+    r"^(?P<iso_timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z))\s+"
+    r"(?P<host>\S+)\s+(?P<service>\w+)\[(?P<pid>\d+)\]:\s+(?P<message>.+)$"
 )
 
 FAILED_PASSWORD = re.compile(
@@ -53,27 +53,25 @@ DISCONNECT = re.compile(r"Received disconnect from (?P<ip>\S+) port (?P<port>\d+
 
 # PAM authentication failure
 PAM_AUTH_FAILURE = re.compile(
-    r'pam_unix\(sshd:auth\): authentication failure;.*rhost=(?P<ip>\S+)(?:\s+user=(?P<username>\S+))?'
+    r"pam_unix\(sshd:auth\): authentication failure;.*rhost=(?P<ip>\S+)(?:\s+user=(?P<username>\S+))?"
 )
 
 # Disconnected from authenticating/invalid user
 DISCONNECTED_AUTH = re.compile(
-    r'Disconnected from (?P<invalid>invalid user )?(?:authenticating user )?(?P<username>\S+) (?P<ip>\S+) port (?P<port>\d+)'
+    r"Disconnected from (?P<invalid>invalid user )?(?:authenticating user )?(?P<username>\S+) (?P<ip>\S+) port (?P<port>\d+)"
 )
 
 # Disconnecting due to too many failures
 DISCONNECTING_TOO_MANY = re.compile(
-    r'Disconnecting (?:authenticating )?user (?P<username>\S+) (?P<ip>\S+) port (?P<port>\d+): Too many authentication failures'
+    r"Disconnecting (?:authenticating )?user (?P<username>\S+) (?P<ip>\S+) port (?P<port>\d+): Too many authentication failures"
 )
 
 # Connection reset by
-CONNECTION_RESET = re.compile(
-    r'Connection reset by (?P<ip>\S+) port (?P<port>\d+)'
-)
+CONNECTION_RESET = re.compile(r"Connection reset by (?P<ip>\S+) port (?P<port>\d+)")
 
 # Unable to negotiate (key exchange failure)
 KEY_EXCHANGE_FAILURE = re.compile(
-    r'Unable to negotiate with (?P<ip>\S+) port (?P<port>\d+): no matching key exchange'
+    r"Unable to negotiate with (?P<ip>\S+) port (?P<port>\d+): no matching key exchange"
 )
 
 # Bad protocol version (scanner detection)
@@ -83,7 +81,7 @@ BAD_PROTOCOL = re.compile(
 
 # Maximum authentication attempts exceeded
 MAX_AUTH_ATTEMPTS = re.compile(
-    r'(?:error: )?maximum authentication attempts exceeded for (?:invalid user )?(?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)'
+    r"(?:error: )?maximum authentication attempts exceeded for (?:invalid user )?(?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)"
 )
 
 # Regex for nginx access.log (combined format)
@@ -152,7 +150,9 @@ def parse_auth_log(line: str) -> dict[str, Any] | None:
         pid = int(groups["pid"])
 
         current_year = datetime.now().year
-        timestamp_str = f"{groups['month']} {groups['day']} {groups['time']} {current_year}"
+        timestamp_str = (
+            f"{groups['month']} {groups['day']} {groups['time']} {current_year}"
+        )
         try:
             timestamp = datetime.strptime(timestamp_str, "%b %d %H:%M:%S %Y")
         except ValueError:
