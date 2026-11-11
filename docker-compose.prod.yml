@@ -24,6 +24,9 @@ services:
           memory: 256M
 
   airflow-webserver:
+    environment:
+      # 4 gunicorn workers (the default) went over 512M on the VPS
+      - AIRFLOW__WEBSERVER__WORKERS=2
     ports: !override
       - "127.0.0.1:${AIRFLOW_PORT:-8085}:8080"
     deploy:
@@ -46,6 +49,9 @@ services:
     # /opt/airflow/logs_input. A directory, not single files, so a rotated log shows its new inode.
     group_add:
       - ${HOST_ADM_GID:-4}
+    environment:
+      # heap of the Spark driver each job starts in this container (ADR-007)
+      - PYSPARK_SUBMIT_ARGS=--driver-memory ${SPARK_DRIVER_MEMORY:-512m} pyspark-shell
     deploy:
       resources:
         limits:
@@ -92,10 +98,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${SPARK_MEM_LIMIT:-768M}
+          memory: ${SPARK_MEM_LIMIT:-128M}
           cpus: '1.0'
         reservations:
-          memory: 384M
+          memory: 32M
 
   dashboard:
     ports: !override
