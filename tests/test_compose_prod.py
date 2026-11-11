@@ -105,7 +105,7 @@ class TestResourceLimits:
             assert "memory" in limits, f"Service {name} missing memory limit"
 
     def test_total_memory_under_limit(self):
-        """Total memory limits should be under 2.5GB."""
+        """Total memory limits should stay under 3GB (ADR-007, measured on the VPS)."""
         config = load_compose_config()
         services = config.get("services", {})
 
@@ -118,7 +118,7 @@ class TestResourceLimits:
             mem = limits.get("memory", "0")
             total_mb += parse_memory_mb(mem)
 
-        assert total_mb <= 2500, f"Total memory {total_mb}MB exceeds 2.5GB limit"
+        assert total_mb <= 3000, f"Total memory {total_mb}MB exceeds 3GB limit"
 
     def test_spark_has_cpu_limit(self):
         """Spark should have CPU limit to avoid starvation."""
