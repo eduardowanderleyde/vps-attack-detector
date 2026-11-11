@@ -66,7 +66,7 @@ def generate_blocklist(
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
     with open(output_path, "w") as f:
-        f.write(f"# VPS Attack Detector - Blocklist\n")
+        f.write("# VPS Attack Detector - Blocklist\n")
         f.write(f"# Generated: {datetime.now().isoformat()}\n")
         f.write(f"# Total IPs: {len(ip_counts)}\n")
         f.write(f"# Minimum severity: {min_severity}\n")
@@ -97,9 +97,7 @@ def main():
     )
     parser.add_argument(
         "--alerts-path",
-        default=os.path.join(
-            os.getenv("DATA_PATH", "./data"), "gold", "alerts"
-        ),
+        default=os.path.join(os.getenv("DATA_PATH", "./data"), "gold", "alerts"),
         help="Path to alerts Parquet directory",
     )
     parser.add_argument(

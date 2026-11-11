@@ -16,29 +16,35 @@ from datetime import datetime
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    lit,
-    input_file_name,
-    monotonically_increasing_id,
     current_timestamp,
+    input_file_name,
+    lit,
+    monotonically_increasing_id,
 )
-from pyspark.sql.types import StructType, StructField, StringType, LongType, TimestampType
+from pyspark.sql.types import (
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
-
-BRONZE_SCHEMA = StructType([
-    StructField("raw_line", StringType(), False),
-    StructField("source_file", StringType(), False),
-    StructField("line_number", LongType(), False),
-    StructField("ingestion_timestamp", TimestampType(), False),
-    StructField("log_type", StringType(), False),
-    StructField("ingestion_date", StringType(), False),
-])
+BRONZE_SCHEMA = StructType(
+    [
+        StructField("raw_line", StringType(), False),
+        StructField("source_file", StringType(), False),
+        StructField("line_number", LongType(), False),
+        StructField("ingestion_timestamp", TimestampType(), False),
+        StructField("log_type", StringType(), False),
+        StructField("ingestion_date", StringType(), False),
+    ]
+)
 
 
 def create_spark_session(app_name: str = "BronzeIngest") -> SparkSession:
     """Create a Spark session configured for local mode."""
     return (
-        SparkSession.builder
-        .appName(app_name)
+        SparkSession.builder.appName(app_name)
         .config("spark.sql.parquet.compression.codec", "snappy")
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         .getOrCreate()
@@ -74,8 +80,7 @@ def ingest_logs(
         files = [
             os.path.join(input_path, f)
             for f in os.listdir(input_path)
-            if os.path.isfile(os.path.join(input_path, f))
-            and not f.startswith(".")
+            if os.path.isfile(os.path.join(input_path, f)) and not f.startswith(".")
         ]
 
     if not files:

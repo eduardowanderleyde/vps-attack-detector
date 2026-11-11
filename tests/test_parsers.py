@@ -4,14 +4,13 @@ Tests verify behavior through the public interface: string in, dict out.
 Each parser returns None for unrecognized lines (no exceptions).
 """
 
-import pytest
 from datetime import datetime
 
 from spark.jobs.utils.parsers import (
     parse_auth_log,
+    parse_docker_json,
     parse_nginx_access,
     parse_nginx_error,
-    parse_docker_json,
 )
 
 

@@ -16,16 +16,17 @@ from datetime import datetime
 
 import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, count, countDistinct
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+)
 from spark.jobs.utils.detectors import (
-    detect_ssh_brute_force,
     detect_credential_stuffing,
-    detect_success_after_failure,
     detect_path_scanning,
-    detect_scanner_ua,
     detect_rate_spike,
+    detect_scanner_ua,
+    detect_ssh_brute_force,
+    detect_success_after_failure,
     load_config,
 )
 
@@ -33,8 +34,7 @@ from spark.jobs.utils.detectors import (
 def create_spark_session(app_name: str = "GoldDetect") -> SparkSession:
     """Create a Spark session configured for local mode."""
     return (
-        SparkSession.builder
-        .appName(app_name)
+        SparkSession.builder.appName(app_name)
         .config("spark.sql.parquet.compression.codec", "snappy")
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         .getOrCreate()
@@ -112,7 +112,9 @@ def run_detection(
 
         combined_spark = spark.createDataFrame(combined)
         alerts_path = os.path.join(gold_path, "alerts")
-        combined_spark.write.mode("overwrite").partitionBy("detection_date").parquet(alerts_path)
+        combined_spark.write.mode("overwrite").partitionBy("detection_date").parquet(
+            alerts_path
+        )
         print(f"Wrote {len(combined)} alerts to {alerts_path}")
 
         ip_stats = (
@@ -128,7 +130,9 @@ def run_detection(
 
         ip_stats_spark = spark.createDataFrame(ip_stats)
         ip_path = os.path.join(gold_path, "ip_stats")
-        ip_stats_spark.write.mode("overwrite").partitionBy("detection_date").parquet(ip_path)
+        ip_stats_spark.write.mode("overwrite").partitionBy("detection_date").parquet(
+            ip_path
+        )
 
         summary = (
             combined.groupby(["alert_type", "severity"])
@@ -139,13 +143,17 @@ def run_detection(
 
         summary_spark = spark.createDataFrame(summary)
         summary_path = os.path.join(gold_path, "attack_summary")
-        summary_spark.write.mode("overwrite").partitionBy("detection_date").parquet(summary_path)
+        summary_spark.write.mode("overwrite").partitionBy("detection_date").parquet(
+            summary_path
+        )
 
     return counts
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run detection and write to Gold layer")
+    parser = argparse.ArgumentParser(
+        description="Run detection and write to Gold layer"
+    )
     parser.add_argument("--silver-path", required=True, help="Path to Silver layer")
     parser.add_argument("--gold-path", required=True, help="Path to Gold layer")
     parser.add_argument(

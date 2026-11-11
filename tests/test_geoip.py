@@ -3,9 +3,7 @@
 Tests verify graceful degradation when GeoIP database is unavailable.
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
-import os
+from unittest.mock import MagicMock
 
 from spark.jobs.utils.geoip import GeoIPEnricher, enrich_ip
 

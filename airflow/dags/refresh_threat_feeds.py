@@ -75,7 +75,7 @@ def refresh_threat_feeds():
         all_ips = set()
         ip_pattern = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})")
 
-        for feed_name, result in download_results.items():
+        for result in download_results.values():
             if result.get("status") != "success":
                 continue
 
@@ -93,13 +93,14 @@ def refresh_threat_feeds():
                     if match:
                         all_ips.add(match.group(1))
 
-        consolidated_file = os.path.join(THREAT_FEEDS_PATH, "consolidated_blocklist.txt")
+        consolidated_file = os.path.join(
+            THREAT_FEEDS_PATH, "consolidated_blocklist.txt"
+        )
         with open(consolidated_file, "w") as f:
             f.write(f"# Consolidated threat feed - {datetime.now().isoformat()}\n")
             f.write(f"# Total IPs: {len(all_ips)}\n")
             f.write("# Sources: " + ", ".join(FEED_URLS.keys()) + "\n\n")
-            for ip in sorted(all_ips):
-                f.write(f"{ip}\n")
+            f.writelines(f"{ip}\n" for ip in sorted(all_ips))
 
         print(f"Consolidated {len(all_ips)} unique IPs to {consolidated_file}")
         return consolidated_file

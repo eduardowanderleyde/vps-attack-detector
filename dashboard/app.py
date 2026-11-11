@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
 DATA_PATH = os.getenv("DATA_PATH", "/app/data")
@@ -162,10 +161,7 @@ def main():
         st.subheader("🎯 Top 10 IPs Atacantes")
 
         ip_counts = (
-            filtered_df.groupby("source_ip")
-            .size()
-            .sort_values(ascending=True)
-            .tail(10)
+            filtered_df.groupby("source_ip").size().sort_values(ascending=True).tail(10)
         )
 
         if not ip_counts.empty:
@@ -256,9 +252,11 @@ def main():
 
     st.subheader("🚨 Alertas Recentes de Alta Severidade")
 
-    high_severity = filtered_df[
-        filtered_df["severity"].isin(["critical", "high"])
-    ].sort_values("timestamp", ascending=False).head(20)
+    high_severity = (
+        filtered_df[filtered_df["severity"].isin(["critical", "high"])]
+        .sort_values("timestamp", ascending=False)
+        .head(20)
+    )
 
     if not high_severity.empty:
         display_cols = ["timestamp", "alert_type", "severity", "source_ip", "evidence"]

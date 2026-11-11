@@ -4,15 +4,16 @@ Supports DB-IP Lite and MaxMind GeoLite2 databases (.mmdb format).
 Degrades gracefully when database is unavailable.
 """
 
-import os
 import ipaddress
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 try:
     import maxminddb
+
     MAXMINDDB_AVAILABLE = True
 except ImportError:
     MAXMINDDB_AVAILABLE = False
@@ -149,7 +150,7 @@ class GeoIPEnricher:
             try:
                 self._reader.close()
             except Exception:
-                pass
+                logger.debug("Failed to close GeoIP reader", exc_info=True)
 
 
 _default_enricher: GeoIPEnricher | None = None

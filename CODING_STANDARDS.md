@@ -51,8 +51,7 @@ def parse_auth_log(line: str) -> dict[str, Any] | None:
 ```python
 def create_spark_session(app_name: str) -> SparkSession:
     return (
-        SparkSession.builder
-        .appName(app_name)
+        SparkSession.builder.appName(app_name)
         .config("spark.sql.parquet.compression.codec", "snappy")
         .getOrCreate()
     )
@@ -73,8 +72,7 @@ def create_spark_session(app_name: str) -> SparkSession:
     catchup=False,
     tags=["attack-detector"],
 )
-def ingest_and_detect():
-    ...
+def ingest_and_detect(): ...
 ```
 
 ### Dashboard Streamlit
@@ -130,7 +128,8 @@ SSH_THRESHOLD = int(os.getenv("SSH_FAILED_THRESHOLD", "5"))
 ```python
 def test_parse_auth_log_extracts_failed_password():
     """Nome descreve o comportamento testado."""
-    
+
+
 def test_detect_brute_force_returns_alert_above_threshold():
     """Não 'test_function_x' genérico."""
 ```

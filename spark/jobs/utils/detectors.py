@@ -13,13 +13,12 @@ Alert schema:
 """
 
 import hashlib
+import os
 from datetime import datetime, timedelta
 from typing import Any
 
 import pandas as pd
 import yaml
-import os
-
 
 DEFAULT_CONFIG = {
     "ssh_brute_force": {
@@ -37,19 +36,46 @@ DEFAULT_CONFIG = {
         "window_minutes": 5,
         "severity": "medium",
         "suspicious_paths": [
-            "/wp-admin", "/wp-login.php", "/.env", "/.git/config",
-            "/phpmyadmin", "/phpMyAdmin", "/admin", "/administrator",
-            "/.htaccess", "/config.php", "/wp-config.php", "/backup.sql",
-            "/database.sql", "/.DS_Store", "/server-status", "/info.php",
-            "/phpinfo.php", "/test.php", "/shell.php", "/cmd.php",
-            "/c99.php", "/r57.php", "/actuator", "/graphql",
+            "/wp-admin",
+            "/wp-login.php",
+            "/.env",
+            "/.git/config",
+            "/phpmyadmin",
+            "/phpMyAdmin",
+            "/admin",
+            "/administrator",
+            "/.htaccess",
+            "/config.php",
+            "/wp-config.php",
+            "/backup.sql",
+            "/database.sql",
+            "/.DS_Store",
+            "/server-status",
+            "/info.php",
+            "/phpinfo.php",
+            "/test.php",
+            "/shell.php",
+            "/cmd.php",
+            "/c99.php",
+            "/r57.php",
+            "/actuator",
+            "/graphql",
         ],
     },
     "scanner_user_agents": {
         "severity": "medium",
         "patterns": [
-            "sqlmap", "nikto", "nmap", "zgrab", "masscan", "nessus",
-            "wpscan", "gobuster", "dirbuster", "nuclei", "shodan",
+            "sqlmap",
+            "nikto",
+            "nmap",
+            "zgrab",
+            "masscan",
+            "nessus",
+            "wpscan",
+            "gobuster",
+            "dirbuster",
+            "nuclei",
+            "shodan",
         ],
     },
     "rate_spike": {
@@ -70,12 +96,12 @@ def load_config(config_path: str | None = None) -> dict[str, Any]:
     if config_path and os.path.exists(config_path):
         with open(config_path) as f:
             return yaml.safe_load(f)
-    
+
     env_path = os.getenv("DETECTION_CONFIG_PATH")
     if env_path and os.path.exists(env_path):
         with open(env_path) as f:
             return yaml.safe_load(f)
-    
+
     return DEFAULT_CONFIG
 
 
@@ -103,7 +129,14 @@ def create_alert(
     }
 
 
-ALERT_COLUMNS = ["alert_id", "alert_type", "severity", "source_ip", "timestamp", "evidence"]
+ALERT_COLUMNS = [
+    "alert_id",
+    "alert_type",
+    "severity",
+    "source_ip",
+    "timestamp",
+    "evidence",
+]
 
 
 def empty_alerts_df() -> pd.DataFrame:
@@ -128,7 +161,7 @@ def detect_ssh_brute_force(
     """
     if config is None:
         config = load_config()
-    
+
     cfg = config.get("ssh_brute_force", DEFAULT_CONFIG["ssh_brute_force"])
     threshold = cfg.get("threshold", 5)
     window_minutes = cfg.get("window_minutes", 10)
@@ -157,17 +190,21 @@ def detect_ssh_brute_force(
         for i in range(len(timestamps) - threshold + 1):
             window_start = timestamps[i]
             window_end = window_start + timedelta(minutes=window_minutes)
-            
-            events_in_window = [t for t in timestamps if window_start <= t <= window_end]
-            
+
+            events_in_window = [
+                t for t in timestamps if window_start <= t <= window_end
+            ]
+
             if len(events_in_window) >= threshold:
-                alerts.append(create_alert(
-                    alert_type="ssh_brute_force",
-                    severity=severity,
-                    source_ip=ip,
-                    timestamp=timestamps[i],
-                    evidence=f"{len(events_in_window)} failed logins in {window_minutes} minutes",
-                ))
+                alerts.append(
+                    create_alert(
+                        alert_type="ssh_brute_force",
+                        severity=severity,
+                        source_ip=ip,
+                        timestamp=timestamps[i],
+                        evidence=f"{len(events_in_window)} failed logins in {window_minutes} minutes",
+                    )
+                )
                 break
 
     if not alerts:
@@ -209,17 +246,19 @@ def detect_credential_stuffing(
     for ip in invalid["source_ip"].unique():
         ip_events = invalid[invalid["source_ip"] == ip]
         unique_users = ip_events["username"].nunique()
-        
+
         if unique_users >= threshold:
             first_event = ip_events.iloc[0]
             usernames = ip_events["username"].unique().tolist()[:5]
-            alerts.append(create_alert(
-                alert_type="credential_stuffing",
-                severity=severity,
-                source_ip=ip,
-                timestamp=first_event["timestamp"],
-                evidence=f"{unique_users} invalid usernames tried: {', '.join(usernames)}",
-            ))
+            alerts.append(
+                create_alert(
+                    alert_type="credential_stuffing",
+                    severity=severity,
+                    source_ip=ip,
+                    timestamp=first_event["timestamp"],
+                    evidence=f"{unique_users} invalid usernames tried: {', '.join(usernames)}",
+                )
+            )
 
     if not alerts:
         return empty_alerts_df()
@@ -267,17 +306,19 @@ def detect_path_scanning(
 
     for ip in suspicious_404["source_ip"].unique():
         ip_events = suspicious_404[suspicious_404["source_ip"] == ip]
-        
+
         if len(ip_events) >= threshold:
             first_event = ip_events.iloc[0]
             paths = ip_events["path"].unique().tolist()[:5]
-            alerts.append(create_alert(
-                alert_type="path_scanning",
-                severity=severity,
-                source_ip=ip,
-                timestamp=first_event["timestamp"],
-                evidence=f"{len(ip_events)} suspicious path probes: {', '.join(paths)}",
-                ))
+            alerts.append(
+                create_alert(
+                    alert_type="path_scanning",
+                    severity=severity,
+                    source_ip=ip,
+                    timestamp=first_event["timestamp"],
+                    evidence=f"{len(ip_events)} suspicious path probes: {', '.join(paths)}",
+                )
+            )
 
     if not alerts:
         return empty_alerts_df()
@@ -327,14 +368,16 @@ def detect_scanner_ua(
     for ip in scanner_requests["source_ip"].unique():
         ip_events = scanner_requests[scanner_requests["source_ip"] == ip]
         first_event = ip_events.iloc[0]
-        
-        alerts.append(create_alert(
-            alert_type="scanner_detected",
-            severity=severity,
-            source_ip=ip,
-            timestamp=first_event["timestamp"],
-            evidence=f"Scanner user agent: {first_event['user_agent'][:100]}",
-        ))
+
+        alerts.append(
+            create_alert(
+                alert_type="scanner_detected",
+                severity=severity,
+                source_ip=ip,
+                timestamp=first_event["timestamp"],
+                evidence=f"Scanner user agent: {first_event['user_agent'][:100]}",
+            )
+        )
 
     if not alerts:
         return empty_alerts_df()
@@ -373,7 +416,7 @@ def detect_rate_spike(
 
     for ip in df["source_ip"].unique():
         ip_events = df[df["source_ip"] == ip]
-        
+
         if len(ip_events) < threshold:
             continue
 
@@ -382,17 +425,21 @@ def detect_rate_spike(
         for i in range(len(timestamps)):
             window_start = timestamps[i]
             window_end = window_start + timedelta(minutes=window_minutes)
-            
-            events_in_window = [t for t in timestamps if window_start <= t <= window_end]
-            
+
+            events_in_window = [
+                t for t in timestamps if window_start <= t <= window_end
+            ]
+
             if len(events_in_window) >= threshold:
-                alerts.append(create_alert(
-                    alert_type="rate_spike",
-                    severity=severity,
-                    source_ip=ip,
-                    timestamp=window_start,
-                    evidence=f"{len(events_in_window)} requests in {window_minutes} minute(s)",
-                ))
+                alerts.append(
+                    create_alert(
+                        alert_type="rate_spike",
+                        severity=severity,
+                        source_ip=ip,
+                        timestamp=window_start,
+                        evidence=f"{len(events_in_window)} requests in {window_minutes} minute(s)",
+                    )
+                )
                 break
 
     if not alerts:
@@ -438,21 +485,23 @@ def detect_success_after_failure(
         ip = success["source_ip"]
         success_time = success["timestamp"]
         window_start = success_time - timedelta(minutes=window_minutes)
-        
+
         prior_failures = failures[
-            (failures["source_ip"] == ip) &
-            (failures["timestamp"] >= window_start) &
-            (failures["timestamp"] < success_time)
+            (failures["source_ip"] == ip)
+            & (failures["timestamp"] >= window_start)
+            & (failures["timestamp"] < success_time)
         ]
-        
+
         if len(prior_failures) >= failure_threshold:
-            alerts.append(create_alert(
-                alert_type="success_after_failure",
-                severity=severity,
-                source_ip=ip,
-                timestamp=success_time,
-                evidence=f"Login success after {len(prior_failures)} failures in {window_minutes} minutes",
-            ))
+            alerts.append(
+                create_alert(
+                    alert_type="success_after_failure",
+                    severity=severity,
+                    source_ip=ip,
+                    timestamp=success_time,
+                    evidence=f"Login success after {len(prior_failures)} failures in {window_minutes} minutes",
+                )
+            )
 
     if not alerts:
         return empty_alerts_df()

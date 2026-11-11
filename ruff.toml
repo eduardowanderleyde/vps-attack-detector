@@ -1,0 +1,4 @@
+# Broad Exception catches are the project's graceful-degradation path
+# (missing Parquet, GeoIP database, network, optional imports).
+[lint]
+ignore = ["BLE001"]
