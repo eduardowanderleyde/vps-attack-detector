@@ -20,6 +20,7 @@ CONFIG_PATH = os.getenv(
 )
 LOGS_INPUT_PATH = os.getenv("LOGS_INPUT_PATH", "/opt/airflow/logs_input")
 GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "")
+CHECKPOINT_PATH = os.getenv("CHECKPOINT_PATH", os.path.join(DATA_PATH, "checkpoints"))
 
 REMOTE_HOST = os.getenv("REMOTE_HOST", "")
 REMOTE_USER = os.getenv("REMOTE_USER", "")
@@ -95,7 +96,8 @@ def ingest_and_detect():
                 --input-path "{LOGS_INPUT_PATH}/auth.log" \
                 --output-path "{DATA_PATH}/bronze" \
                 --log-type auth \
-                --ingestion-date "{{{{ ds }}}}"
+                --ingestion-date "{{{{ ds }}}}" \
+                --checkpoint-path "{CHECKPOINT_PATH}/auth.json"
         else
             echo "No auth.log found, skipping"
         fi
@@ -110,7 +112,8 @@ def ingest_and_detect():
                 --input-path "{LOGS_INPUT_PATH}/nginx_access.log" \
                 --output-path "{DATA_PATH}/bronze" \
                 --log-type nginx_access \
-                --ingestion-date "{{{{ ds }}}}"
+                --ingestion-date "{{{{ ds }}}}" \
+                --checkpoint-path "{CHECKPOINT_PATH}/nginx_access.json"
         else
             echo "No nginx_access.log found, skipping"
         fi
@@ -125,7 +128,8 @@ def ingest_and_detect():
                 --input-path "{LOGS_INPUT_PATH}/nginx_error.log" \
                 --output-path "{DATA_PATH}/bronze" \
                 --log-type nginx_error \
-                --ingestion-date "{{{{ ds }}}}"
+                --ingestion-date "{{{{ ds }}}}" \
+                --checkpoint-path "{CHECKPOINT_PATH}/nginx_error.json"
         else
             echo "No nginx_error.log found, skipping"
         fi
@@ -140,9 +144,42 @@ def ingest_and_detect():
                 --input-path "{LOGS_INPUT_PATH}/docker.log" \
                 --output-path "{DATA_PATH}/bronze" \
                 --log-type docker \
-                --ingestion-date "{{{{ ds }}}}"
+                --ingestion-date "{{{{ ds }}}}" \
+                --checkpoint-path "{CHECKPOINT_PATH}/docker.json"
         else
             echo "No docker.log found, skipping"
+        fi
+        """,
+    )
+
+    ingest_caddy = BashOperator(
+        task_id="ingest_caddy_logs",
+        bash_command=f"""
+        if [ -f "{LOGS_INPUT_PATH}/caddy.json" ]; then
+            cd {SPARK_JOBS_PATH} && python bronze_ingest.py \
+                --input-path "{LOGS_INPUT_PATH}/caddy.json" \
+                --output-path "{DATA_PATH}/bronze" \
+                --log-type caddy \
+                --ingestion-date "{{{{ ds }}}}" \
+                --checkpoint-path "{CHECKPOINT_PATH}/caddy.json"
+        else
+            echo "No caddy.json found, skipping"
+        fi
+        """,
+    )
+
+    ingest_fail2ban = BashOperator(
+        task_id="ingest_fail2ban_logs",
+        bash_command=f"""
+        if [ -f "{LOGS_INPUT_PATH}/fail2ban.log" ]; then
+            cd {SPARK_JOBS_PATH} && python bronze_ingest.py \
+                --input-path "{LOGS_INPUT_PATH}/fail2ban.log" \
+                --output-path "{DATA_PATH}/bronze" \
+                --log-type fail2ban \
+                --ingestion-date "{{{{ ds }}}}" \
+                --checkpoint-path "{CHECKPOINT_PATH}/fail2ban.json"
+        else
+            echo "No fail2ban.log found, skipping"
         fi
         """,
     )
@@ -161,7 +198,7 @@ def ingest_and_detect():
     detect_attacks = BashOperator(
         task_id="detect_attacks",
         bash_command=f"""
-        cd {SPARK_JOBS_PATH} && python gold_detect.py \
+        cd {SPARK_JOBS_PATH} && TRUSTED_IP_CIDRS="${{TRUSTED_IP_CIDRS:-}}" python gold_detect.py \
             --silver-path "{DATA_PATH}/silver" \
             --gold-path "{DATA_PATH}/gold" \
             --detection-date "{{{{ ds }}}}" \
@@ -172,13 +209,16 @@ def ingest_and_detect():
     sync = sync_remote_logs()
     _date = get_execution_date()
 
-    sync >> [ingest_auth, ingest_nginx_access, ingest_nginx_error, ingest_docker]
-    [
+    ingest_tasks = [
         ingest_auth,
         ingest_nginx_access,
         ingest_nginx_error,
         ingest_docker,
-    ] >> transform_silver
+        ingest_caddy,
+        ingest_fail2ban,
+    ]
+    sync >> ingest_tasks
+    ingest_tasks >> transform_silver
     transform_silver >> detect_attacks
 
 

@@ -35,7 +35,9 @@ sys.path.insert(
 from spark.jobs.utils.geoip import GeoIPEnricher
 from spark.jobs.utils.parsers import (
     parse_auth_log,
+    parse_caddy_json,
     parse_docker_json,
+    parse_fail2ban_log,
     parse_nginx_access,
     parse_nginx_error,
 )
@@ -58,6 +60,8 @@ def create_parser_udf(log_type: str):
         "nginx_access": parse_nginx_access,
         "nginx_error": parse_nginx_error,
         "docker": parse_docker_json,
+        "caddy": parse_caddy_json,
+        "fail2ban": parse_fail2ban_log,
     }
 
     parser = parser_map.get(log_type)
@@ -147,6 +151,19 @@ def transform_error_logs(df: DataFrame, geoip_udf) -> DataFrame:
     )
 
 
+def transform_fail2ban_logs(df: DataFrame, geoip_udf) -> DataFrame:
+    """Transform fail2ban events to Silver schema."""
+    return df.select(
+        to_timestamp(col("parsed.timestamp")).alias("event_timestamp"),
+        col("parsed.action").alias("action"),
+        col("parsed.jail").alias("jail"),
+        col("parsed.source_ip").alias("source_ip"),
+        col("source_file"),
+        col("ingestion_timestamp"),
+        lit("fail2ban_events").alias("event_category"),
+    )
+
+
 def transform_container_logs(df: DataFrame, geoip_udf) -> DataFrame:
     """Transform Docker container log events to Silver schema."""
     return df.select(
@@ -179,6 +196,7 @@ def transform_logs(
         Dict with counts per log type
     """
     counts = {}
+    written_categories: set[str] = set()
     geoip_udf = create_geoip_udf(geoip_db_path)
 
     log_types = {
@@ -186,6 +204,8 @@ def transform_logs(
         "nginx_access": ("http_requests", transform_http_logs),
         "nginx_error": ("error_logs", transform_error_logs),
         "docker": ("container_logs", transform_container_logs),
+        "caddy": ("http_requests", transform_http_logs),
+        "fail2ban": ("fail2ban_events", transform_fail2ban_logs),
     }
 
     for log_type, (category, transformer) in log_types.items():
@@ -224,9 +244,11 @@ def transform_logs(
             )
 
             output_dir = os.path.join(silver_path, category)
-            df_silver.write.mode("overwrite").partitionBy("event_date").parquet(
+            write_mode = "append" if category in written_categories else "overwrite"
+            df_silver.write.mode(write_mode).partitionBy("event_date").parquet(
                 output_dir
             )
+            written_categories.add(category)
 
             counts[log_type] = df_silver.count()
             print(f"Transformed {counts[log_type]} {log_type} events to {output_dir}")
