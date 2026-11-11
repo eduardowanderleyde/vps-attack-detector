@@ -29,6 +29,7 @@ from spark.jobs.utils.detectors import (
     detect_success_after_failure,
     load_config,
 )
+from spark.jobs.utils.trusted_ips import parse_trusted_cidrs
 
 
 def create_spark_session(app_name: str = "GoldDetect") -> SparkSession:
@@ -39,6 +40,42 @@ def create_spark_session(app_name: str = "GoldDetect") -> SparkSession:
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         .getOrCreate()
     )
+
+
+def _write_fail2ban_gold(
+    spark: SparkSession,
+    silver_path: str,
+    gold_path: str,
+    detection_date: str,
+) -> None:
+    """Copy fail2ban events to Gold and mark IPs whose latest action is a ban."""
+    source = os.path.join(silver_path, "fail2ban_events")
+    if not os.path.exists(source):
+        return
+    try:
+        events = spark.read.parquet(source).toPandas()
+    except Exception as e:
+        print(f"Error processing fail2ban events: {e}")
+        return
+    if events.empty or "source_ip" not in events.columns:
+        return
+
+    banned: set[str] = set()
+    ordered = events.sort_values("event_timestamp")
+    for _, row in ordered.iterrows():
+        ip = row["source_ip"]
+        action = row.get("action")
+        if action in ("ban", "restore_ban"):
+            banned.add(ip)
+        elif action == "unban":
+            banned.discard(ip)
+
+    events["currently_banned"] = events["source_ip"].isin(banned)
+    events["detection_date"] = detection_date
+    spark.createDataFrame(events).write.mode("overwrite").partitionBy(
+        "detection_date"
+    ).parquet(os.path.join(gold_path, "fail2ban_events"))
+    print(f"Wrote {len(events)} fail2ban events ({len(banned)} currently banned)")
 
 
 def run_detection(
@@ -63,6 +100,15 @@ def run_detection(
     config = load_config(config_path)
     all_alerts = []
     counts = {}
+    trusted_cidrs = [
+        cidr.strip()
+        for cidr in os.getenv("TRUSTED_IP_CIDRS", "").split(",")
+        if cidr.strip()
+    ]
+    if trusted_cidrs:
+        print(
+            f"Trusted CIDRs in effect: {len(parse_trusted_cidrs(','.join(trusted_cidrs)))}"
+        )
 
     ssh_path = os.path.join(silver_path, "ssh_events")
     if os.path.exists(ssh_path):
@@ -77,7 +123,10 @@ def run_detection(
                 (detect_credential_stuffing, "credential_stuffing"),
                 (detect_success_after_failure, "success_after_failure"),
             ]:
-                alerts = detector(ssh_pd, config)
+                if name == "success_after_failure":
+                    alerts = detector(ssh_pd, config, trusted_cidrs=trusted_cidrs)
+                else:
+                    alerts = detector(ssh_pd, config)
                 if not alerts.empty:
                     all_alerts.append(alerts)
                     counts[name] = len(alerts)
@@ -105,6 +154,8 @@ def run_detection(
                     print(f"Detected {len(alerts)} {name} alerts")
         except Exception as e:
             print(f"Error processing HTTP events: {e}")
+
+    _write_fail2ban_gold(spark, silver_path, gold_path, detection_date)
 
     if all_alerts:
         combined = pd.concat(all_alerts, ignore_index=True)

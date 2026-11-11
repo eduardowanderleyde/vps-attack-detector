@@ -450,20 +450,35 @@ def detect_rate_spike(
 def detect_success_after_failure(
     df: pd.DataFrame,
     config: dict[str, Any] | None = None,
+    trusted_cidrs: list[str] | None = None,
 ) -> pd.DataFrame:
     """Detect successful login after multiple failures.
 
     This is a high-severity indicator of possible credential compromise.
+    Public-key logins from TRUSTED_IP_CIDRS are not alerts (ADR-012).
+    Password logins stay alerts even when the IP is trusted.
 
     Args:
         df: DataFrame with SSH events
         config: Detection configuration
+        trusted_cidrs: CIDR strings. None loads TRUSTED_IP_CIDRS from the environment.
 
     Returns:
         DataFrame of alerts
     """
+    from spark.jobs.utils.trusted_ips import (
+        get_trusted_networks_from_env,
+        is_trusted_ip,
+        parse_trusted_cidrs,
+    )
+
     if config is None:
         config = load_config()
+
+    if trusted_cidrs is None:
+        trusted_networks = get_trusted_networks_from_env()
+    else:
+        trusted_networks = parse_trusted_cidrs(",".join(trusted_cidrs))
 
     cfg = config.get("success_after_failure", DEFAULT_CONFIG["success_after_failure"])
     failure_threshold = cfg.get("failure_threshold", 3)
@@ -484,6 +499,10 @@ def detect_success_after_failure(
     for _, success in successes.iterrows():
         ip = success["source_ip"]
         success_time = success["timestamp"]
+        if success["event_type"] == "accepted_publickey" and is_trusted_ip(
+            str(ip), trusted_networks
+        ):
+            continue
         window_start = success_time - timedelta(minutes=window_minutes)
 
         prior_failures = failures[
