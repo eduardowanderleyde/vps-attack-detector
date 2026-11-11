@@ -1,0 +1,34 @@
+Nov 10 08:00:01 vps-prod sshd[10001]: Accepted publickey for ubuntu from 192.168.1.1 port 52001 ssh2: RSA SHA256:abc123
+Nov 10 08:05:00 vps-prod sshd[10002]: Accepted password for deploy from 10.0.0.10 port 52002 ssh2
+Nov 10 08:10:00 vps-prod sshd[10003]: Failed password for root from 203.0.113.50 port 52003 ssh2
+Nov 10 08:10:05 vps-prod sshd[10004]: Failed password for root from 203.0.113.50 port 52004 ssh2
+Nov 10 08:10:10 vps-prod sshd[10005]: Failed password for root from 203.0.113.50 port 52005 ssh2
+Nov 10 08:10:15 vps-prod sshd[10006]: Failed password for root from 203.0.113.50 port 52006 ssh2
+Nov 10 08:10:20 vps-prod sshd[10007]: Failed password for root from 203.0.113.50 port 52007 ssh2
+Nov 10 08:10:25 vps-prod sshd[10008]: Failed password for root from 203.0.113.50 port 52008 ssh2
+Nov 10 08:10:30 vps-prod sshd[10009]: Failed password for root from 203.0.113.50 port 52009 ssh2
+Nov 10 08:10:35 vps-prod sshd[10010]: Failed password for root from 203.0.113.50 port 52010 ssh2
+Nov 10 08:10:40 vps-prod sshd[10011]: Failed password for root from 203.0.113.50 port 52011 ssh2
+Nov 10 08:10:45 vps-prod sshd[10012]: Failed password for root from 203.0.113.50 port 52012 ssh2
+Nov 10 08:11:00 vps-prod sshd[10013]: Accepted password for ubuntu from 203.0.113.50 port 52013 ssh2
+Nov 10 08:15:00 vps-prod sshd[10014]: Invalid user admin from 198.51.100.1 port 52014
+Nov 10 08:15:05 vps-prod sshd[10015]: Failed password for invalid user admin from 198.51.100.1 port 52015 ssh2
+Nov 10 08:15:10 vps-prod sshd[10016]: Invalid user test from 198.51.100.1 port 52016
+Nov 10 08:15:15 vps-prod sshd[10017]: Failed password for invalid user test from 198.51.100.1 port 52017 ssh2
+Nov 10 08:15:20 vps-prod sshd[10018]: Invalid user guest from 198.51.100.1 port 52018
+Nov 10 08:15:25 vps-prod sshd[10019]: Failed password for invalid user guest from 198.51.100.1 port 52019 ssh2
+Nov 10 08:15:30 vps-prod sshd[10020]: Invalid user oracle from 198.51.100.1 port 52020
+Nov 10 08:15:35 vps-prod sshd[10021]: Failed password for invalid user oracle from 198.51.100.1 port 52021 ssh2
+Nov 10 08:15:40 vps-prod sshd[10022]: Invalid user postgres from 198.51.100.1 port 52022
+Nov 10 08:15:45 vps-prod sshd[10023]: Failed password for invalid user postgres from 198.51.100.1 port 52023 ssh2
+Nov 10 08:20:00 vps-prod sshd[10024]: Connection closed by 203.0.113.50 port 52024 [preauth]
+Nov 10 08:25:00 vps-prod sshd[10025]: Accepted publickey for ubuntu from 192.168.1.1 port 52025 ssh2: RSA SHA256:abc123
+Nov 10 08:30:00 vps-prod sshd[10026]: Failed password for root from 203.0.113.75 port 52026 ssh2
+Nov 10 08:30:05 vps-prod sshd[10027]: Failed password for root from 203.0.113.75 port 52027 ssh2
+Nov 10 08:30:10 vps-prod sshd[10028]: Failed password for root from 203.0.113.75 port 52028 ssh2
+Nov 10 08:35:00 vps-prod sudo: ubuntu : TTY=pts/0 ; PWD=/home/ubuntu ; USER=root ; COMMAND=/bin/systemctl restart nginx
+Nov 10 09:00:00 vps-prod sshd[10029]: Accepted password for deploy from 10.0.0.10 port 52029 ssh2
+Nov 10 09:30:00 vps-prod sshd[10030]: Failed password for ubuntu from 198.51.100.50 port 52030 ssh2
+Nov 10 09:30:05 vps-prod sshd[10031]: Failed password for ubuntu from 198.51.100.50 port 52031 ssh2
+Nov 10 10:00:00 vps-prod sshd[10032]: Received disconnect from 192.168.1.1 port 52032:11: disconnected by user
+Nov 10 10:30:00 vps-prod sshd[10033]: Accepted publickey for ubuntu from 192.168.1.1 port 52033 ssh2: RSA SHA256:abc123
