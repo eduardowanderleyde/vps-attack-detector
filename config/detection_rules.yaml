@@ -1,0 +1,102 @@
+# Detection Rules Configuration
+# Thresholds are configurable per detection type
+
+ssh_brute_force:
+  threshold: 5
+  window_minutes: 10
+  severity: high
+
+credential_stuffing:
+  threshold: 3
+  window_minutes: 10
+  severity: medium
+
+path_scanning:
+  threshold: 10
+  window_minutes: 5
+  severity: medium
+  suspicious_paths:
+    - /wp-admin
+    - /wp-login.php
+    - /wordpress/wp-admin
+    - /.env
+    - /.git/config
+    - /.git/HEAD
+    - /phpmyadmin
+    - /phpMyAdmin
+    - /pma
+    - /admin
+    - /administrator
+    - /.htaccess
+    - /.htpasswd
+    - /config.php
+    - /wp-config.php
+    - /configuration.php
+    - /backup.sql
+    - /database.sql
+    - /dump.sql
+    - /.DS_Store
+    - /server-status
+    - /server-info
+    - /info.php
+    - /phpinfo.php
+    - /test.php
+    - /shell.php
+    - /cmd.php
+    - /c99.php
+    - /r57.php
+    - /webshell.php
+    - /.well-known/security.txt
+    - /actuator
+    - /actuator/env
+    - /actuator/health
+    - /api/v1
+    - /graphql
+    - /.aws/credentials
+    - /.docker/config.json
+    - /etc/passwd
+    - /etc/shadow
+    - /proc/self/environ
+
+scanner_user_agents:
+  severity: medium
+  patterns:
+    - sqlmap
+    - nikto
+    - nmap
+    - zgrab
+    - masscan
+    - nessus
+    - openvas
+    - w3af
+    - wpscan
+    - joomscan
+    - gobuster
+    - dirbuster
+    - dirb
+    - ffuf
+    - feroxbuster
+    - nuclei
+    - httpx
+    - subfinder
+    - amass
+    - shodan
+    - censys
+    - python-requests
+    - curl
+    - wget
+    - libwww-perl
+    - scanbot
+    - scanner
+    - crawler
+    - spider
+
+rate_spike:
+  threshold_per_minute: 100
+  window_minutes: 1
+  severity: medium
+
+success_after_failure:
+  failure_threshold: 3
+  window_minutes: 30
+  severity: critical
