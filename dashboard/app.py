@@ -4,16 +4,18 @@ Streamlit dashboard for visualizing security alerts and attack patterns.
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from view import active_ban_ips, annotate_bans, ban_table, data_date_range
 
 DATA_PATH = os.getenv("DATA_PATH", "/app/data")
 ALERTS_PATH = os.path.join(DATA_PATH, "gold", "alerts")
 IP_STATS_PATH = os.path.join(DATA_PATH, "gold", "ip_stats")
 SUMMARY_PATH = os.path.join(DATA_PATH, "gold", "attack_summary")
+FAIL2BAN_PATH = os.path.join(DATA_PATH, "gold", "fail2ban_events")
 
 
 st.set_page_config(
@@ -52,6 +54,17 @@ def load_ip_stats() -> pd.DataFrame:
         return pd.DataFrame()
 
 
+@st.cache_data(ttl=300)
+def load_fail2ban() -> pd.DataFrame:
+    """Load fail2ban events written by the gold job."""
+    if not os.path.exists(FAIL2BAN_PATH):
+        return pd.DataFrame()
+    try:
+        return pd.read_parquet(FAIL2BAN_PATH)
+    except Exception:
+        return pd.DataFrame()
+
+
 def severity_color(severity: str) -> str:
     """Get color for severity level."""
     colors = {
@@ -67,13 +80,24 @@ def main():
     st.title("🛡️ VPS Attack Detector")
     st.markdown("**Monitoramento de segurança para seu servidor**")
 
+    alerts_df = load_alerts()
+    fail2ban_df = load_fail2ban()
+    banned = active_ban_ips(fail2ban_df)
+    if not alerts_df.empty:
+        alerts_df = annotate_bans(alerts_df, banned)
+
+    period_start, period_end = data_date_range(
+        alerts_df["timestamp"] if "timestamp" in alerts_df.columns else None,
+        datetime.now().date(),
+    )
+
     with st.sidebar:
         st.header("Filtros")
 
         date_range = st.date_input(
             "Período",
-            value=(datetime.now() - timedelta(days=7), datetime.now()),
-            max_value=datetime.now(),
+            value=(period_start, period_end),
+            max_value=max(period_end, datetime.now().date()),
         )
 
         severity_filter = st.multiselect(
@@ -100,22 +124,23 @@ def main():
             st.cache_data.clear()
             st.rerun()
 
-    alerts_df = load_alerts()
-
-    if alerts_df.empty:
-        st.warning(
-            "Nenhum dado disponível. Execute o pipeline de ingestão primeiro "
-            "ou verifique se há logs nos diretórios configurados."
-        )
-
+    if alerts_df.empty and fail2ban_df.empty:
+        st.warning("Nenhum dado em `data/gold` ainda.")
         st.info(
             """
-            **Para começar:**
-            1. Certifique-se de que os logs estão em `data/sample_logs/`
-            2. Execute o DAG `ingest_and_detect` no Airflow
-            3. Aguarde o processamento e retorne aqui
+            **Para ver as amostras agora, sem subir o Airflow:**
+            ```
+            make view-data
+            DATA_PATH=./data python3 -m streamlit run dashboard/app.py
+            ```
+            No VPS, o DAG `ingest_and_detect` preenche o mesmo diretório.
             """
         )
+        return
+
+    if alerts_df.empty:
+        st.warning("Ainda não há alertas. Os eventos do fail2ban estão abaixo.")
+        _show_bans(fail2ban_df, banned)
         return
 
     if "timestamp" in alerts_df.columns and len(date_range) == 2:
@@ -147,12 +172,10 @@ def main():
         st.metric("IPs Únicos", unique_ips)
 
     with col4:
-        if "country" in filtered_df.columns:
-            unique_countries = filtered_df["country"].nunique()
-            st.metric("Países", unique_countries)
-        else:
-            st.metric("Países", "N/A")
+        st.metric("Já banidos", len(banned))
 
+    st.markdown("---")
+    _show_bans(fail2ban_df, banned)
     st.markdown("---")
 
     col1, col2 = st.columns(2)
@@ -174,7 +197,7 @@ def main():
                 color_continuous_scale="Reds",
             )
             fig.update_layout(showlegend=False, height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("Nenhum dado para exibir")
 
@@ -190,7 +213,7 @@ def main():
                 hole=0.4,
             )
             fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("Nenhum dado para exibir")
 
@@ -204,7 +227,7 @@ def main():
         if "timestamp" in filtered_df.columns and not filtered_df.empty:
             timeline = (
                 filtered_df.set_index("timestamp")
-                .resample("1H")
+                .resample("1h")
                 .size()
                 .reset_index(name="count")
             )
@@ -216,7 +239,7 @@ def main():
                 labels={"timestamp": "Hora", "count": "Alertas"},
             )
             fig.update_layout(height=300)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("Dados de timestamp não disponíveis")
 
@@ -242,7 +265,7 @@ def main():
                     color_continuous_scale="Blues",
                 )
                 fig.update_layout(showlegend=False, height=300)
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
             else:
                 st.info("Dados de país não disponíveis (configure GeoIP)")
         else:
@@ -259,7 +282,14 @@ def main():
     )
 
     if not high_severity.empty:
-        display_cols = ["timestamp", "alert_type", "severity", "source_ip", "evidence"]
+        display_cols = [
+            "timestamp",
+            "alert_type",
+            "severity",
+            "source_ip",
+            "fail2ban",
+            "evidence",
+        ]
         display_cols = [c for c in display_cols if c in high_severity.columns]
 
         def highlight_severity(row):
@@ -268,7 +298,7 @@ def main():
 
         st.dataframe(
             high_severity[display_cols].style.apply(highlight_severity, axis=1),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
     else:
@@ -280,7 +310,7 @@ def main():
         if not filtered_df.empty:
             st.dataframe(
                 filtered_df.sort_values("timestamp", ascending=False),
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         else:
@@ -306,6 +336,20 @@ def main():
             - 🟢 **Low**: Ruído ou baixo risco
             """
         )
+
+
+def _show_bans(fail2ban_df: pd.DataFrame, banned: set[str]) -> None:
+    """Show IPs fail2ban has already banned, so the blocklist does not repeat them."""
+    st.subheader("🚫 Já banidos pelo fail2ban")
+    if not banned:
+        st.info("Nenhum IP com ban ativo do fail2ban neste conjunto.")
+        return
+
+    table = ban_table(fail2ban_df)
+    st.caption(
+        "Estes IPs já estão no fail2ban. A blocklist gerada não os inclui de novo."
+    )
+    st.dataframe(table, width="stretch", hide_index=True)
 
 
 if __name__ == "__main__":

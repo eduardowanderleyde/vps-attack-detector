@@ -57,6 +57,32 @@ def create_spark_session(app_name: str = "BronzeIngest") -> SparkSession:
 
 
 LOG_TYPES = ["auth", "nginx_access", "nginx_error", "docker", "caddy", "fail2ban"]
+_SKIPPED_SUFFIXES = (".gz", ".xz", ".bz2", ".zip")
+
+
+def list_log_files(input_path: str) -> list[str]:
+    """Return readable log files under a file or directory.
+
+    Compressed archives are skipped. A Caddy directory such as
+    /var/log/caddy holds access.log plus rotated copies, not one caddy.json.
+    """
+    if os.path.isfile(input_path):
+        return [] if _is_skipped_log(os.path.basename(input_path)) else [input_path]
+    if not os.path.isdir(input_path):
+        return []
+
+    found = []
+    for dirpath, dirnames, filenames in os.walk(input_path):
+        dirnames[:] = sorted(name for name in dirnames if not name.startswith("."))
+        for name in sorted(filenames):
+            if name.startswith(".") or _is_skipped_log(name):
+                continue
+            found.append(os.path.join(dirpath, name))
+    return found
+
+
+def _is_skipped_log(name: str) -> bool:
+    return name.endswith(_SKIPPED_SUFFIXES)
 
 
 def _write_text_df(
@@ -142,24 +168,29 @@ def ingest_logs(
         print(f"Input path does not exist: {input_path}")
         return 0
 
-    if checkpoint_path and os.path.isfile(input_path):
+    files = list_log_files(input_path)
+    if checkpoint_path and len(files) == 1:
         return _ingest_incremental(
             spark,
-            input_path,
+            files[0],
             output_path,
             log_type,
             ingestion_date,
             checkpoint_path,
         )
-
-    if os.path.isfile(input_path):
-        files = [input_path]
-    else:
-        files = [
-            os.path.join(input_path, f)
-            for f in os.listdir(input_path)
-            if os.path.isfile(os.path.join(input_path, f)) and not f.startswith(".")
-        ]
+    if checkpoint_path and len(files) > 1:
+        total = 0
+        for path in files:
+            relative = os.path.relpath(path, input_path).replace(os.sep, "__")
+            total += _ingest_incremental(
+                spark,
+                path,
+                output_path,
+                log_type,
+                ingestion_date,
+                os.path.join(checkpoint_path, f"{relative}.json"),
+            )
+        return total
 
     if not files:
         print(f"No files found in {input_path}")
@@ -209,7 +240,10 @@ def main():
     parser.add_argument(
         "--checkpoint-path",
         default=None,
-        help="Checkpoint JSON path. When set, only new bytes are ingested.",
+        help=(
+            "Checkpoint JSON path for one file, or a directory when "
+            "--input-path is a directory of logs (one checkpoint per file)."
+        ),
     )
 
     args = parser.parse_args()

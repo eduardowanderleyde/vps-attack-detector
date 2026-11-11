@@ -8,7 +8,7 @@
 #   make validate     - Validate configs before deploy
 
 .PHONY: help dev-up dev-down prod-up prod-down test lint validate \
-        logs clean prune setup-env download-geoip check-ports
+        logs clean prune setup-env download-geoip check-ports view view-data
 
 # Default target
 help:
@@ -32,6 +32,8 @@ help:
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          Run all tests"
+	@echo "  make view-data     Build dashboard tables from sample logs"
+	@echo "  make view          Build sample data and open the dashboard"
 	@echo "  make test-parsers  Run parser tests only"
 	@echo "  make test-cov      Run tests with coverage"
 	@echo ""
@@ -150,6 +152,12 @@ test-cov:
 
 test-quick:
 	python3 -m pytest tests/ -x -q
+
+view-data:
+	PYTHONPATH=. python3 scripts/build_view_data.py
+
+view: view-data
+	DATA_PATH=./data python3 -m streamlit run dashboard/app.py --server.port 8501 --server.address 0.0.0.0
 
 # ==============================================================================
 # Maintenance
