@@ -13,14 +13,14 @@ O VPS alvo tem ~7.8GB RAM sem swap, com ~5.9GB disponível após outros serviço
 
 | Serviço | mem_limit | mem_reservation | cpus |
 |---------|-----------|-----------------|------|
-| PostgreSQL | 512m | 256m | 0.5 |
-| Airflow Webserver (2 workers) | 512m | 256m | 0.5 |
+| PostgreSQL | 256m | 128m | 0.5 |
+| Airflow Webserver (2 workers) | 768m | 256m | 0.5 |
 | Airflow Scheduler (roda os jobs Spark) | 1536m | 384m | 1.0 |
 | Spark (container ocioso) | 128m | 32m | 1.0 |
 | Dashboard | 256m | 128m | 0.25 |
-| **Total** | **~2.9GB** | **~1.0GB** | **3.25** |
+| **Total** | **~2.9GB** | **~0.9GB** | **3.25** |
 
-Revisão de 11/11/2026, medida no VPS: os jobs rodam no scheduler (LocalExecutor + Spark local), não no container `spark`, que teve pico de 8MB. Com 384m o scheduler não comporta o driver Spark; com 1536m e as 6 ingestões em paralelo ele ainda sofreu 8 OOM kills. Por isso a DAG roda uma task por vez (`max_active_tasks=1`), o driver usa 512m de heap (`PYSPARK_SUBMIT_ARGS`) e o webserver usa 2 workers.
+Revisão de 11/11/2026, medida no VPS: os jobs rodam no scheduler (LocalExecutor + Spark local), não no container `spark`, que teve pico de 8MB. Com 384m o scheduler não comporta o driver Spark; com 1536m e as 6 ingestões em paralelo ele ainda sofreu 8 OOM kills. Por isso a DAG roda uma task por vez (`max_active_tasks=1`), o driver usa 512m de heap (`PYSPARK_SUBMIT_ARGS`) e o webserver usa 2 workers com 768m (com 512m ele ainda era morto ao iniciar). O Postgres teve pico de 99MB e caiu para 256m.
 
 Configurações de memória do Spark:
 ```yaml

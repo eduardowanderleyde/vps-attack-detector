@@ -7,10 +7,10 @@ x-prod-resources: &prod-resources
   deploy:
     resources:
       limits:
-        memory: ${POSTGRES_MEM_LIMIT:-512M}
+        memory: ${POSTGRES_MEM_LIMIT:-256M}
         cpus: '0.5'
       reservations:
-        memory: 256M
+        memory: 128M
 
 services:
   postgres:
@@ -18,21 +18,21 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${POSTGRES_MEM_LIMIT:-512M}
+          memory: ${POSTGRES_MEM_LIMIT:-256M}
           cpus: '0.5'
         reservations:
-          memory: 256M
+          memory: 128M
 
   airflow-webserver:
     environment:
-      # 4 gunicorn workers (the default) went over 512M on the VPS
+      # 4 gunicorn workers (the default) went over 512M on the VPS; 2 still peak at startup, so 768M
       - AIRFLOW__WEBSERVER__WORKERS=2
     ports: !override
       - "127.0.0.1:${AIRFLOW_PORT:-8085}:8080"
     deploy:
       resources:
         limits:
-          memory: ${AIRFLOW_WEB_MEM_LIMIT:-512M}
+          memory: ${AIRFLOW_WEB_MEM_LIMIT:-768M}
           cpus: '0.5'
         reservations:
           memory: 256M
