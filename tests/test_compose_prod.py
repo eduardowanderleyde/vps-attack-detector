@@ -203,7 +203,13 @@ class TestHealthchecks:
         config = load_compose_config()
         services = config.get("services", {})
 
-        critical = ["postgres", "airflow-webserver", "airflow-scheduler", "dashboard"]
+        critical = [
+            "postgres",
+            "airflow-webserver",
+            "airflow-scheduler",
+            "spark",
+            "dashboard",
+        ]
         for name in critical:
             svc = services.get(name, {})
             assert "healthcheck" in svc, f"Service {name} missing healthcheck"
@@ -312,3 +318,11 @@ class TestProdYamlStructure:
         assert "DATA_RETENTION_DAYS" in env_dict, (
             "Spark missing DATA_RETENTION_DAYS env"
         )
+
+    def test_spark_healthcheck_checks_the_container_is_running(self):
+        """Ticket 108: Spark has no HTTP health URL, so probe PID 1."""
+        spark = load_prod_yaml().get("services", {}).get("spark", {})
+        health = spark.get("healthcheck", {})
+        command = health.get("test", [])
+        text = " ".join(command) if isinstance(command, list) else str(command)
+        assert "kill -0 1" in text
