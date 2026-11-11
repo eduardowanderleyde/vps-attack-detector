@@ -1,0 +1,8 @@
+# Spark job dependencies
+pyspark==3.5.0
+pyarrow>=14.0.0
+pandas>=2.0.0
+pyyaml>=6.0
+maxminddb>=2.5.0
+python-dateutil>=2.8.2
+ua-parser>=0.18.0

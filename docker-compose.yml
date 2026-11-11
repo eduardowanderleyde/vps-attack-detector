@@ -1,0 +1,190 @@
+version: '3.8'
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  environment:
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://${POSTGRES_USER:-airflow}:${POSTGRES_PASSWORD:-airflow}@postgres:5432/${POSTGRES_DB:-airflow}
+    - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-}
+    - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+    - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    - AIRFLOW__WEBSERVER__SECRET_KEY=${AIRFLOW_SECRET_KEY:-change-me-in-production}
+    - AIRFLOW__WEBSERVER__EXPOSE_CONFIG=false
+    - AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL=30
+    - _PIP_ADDITIONAL_REQUIREMENTS=
+    # Detection config
+    - DETECTION_CONFIG_PATH=/opt/airflow/config/detection_rules.yaml
+    - DATA_PATH=/opt/airflow/data
+    - SPARK_HOME=/opt/spark
+    # Optional remote log sync
+    - REMOTE_HOST=${REMOTE_HOST:-}
+    - REMOTE_USER=${REMOTE_USER:-}
+    - REMOTE_SSH_PORT=${REMOTE_SSH_PORT:-22}
+    - REMOTE_LOG_PATHS=${REMOTE_LOG_PATHS:-}
+    - SSH_KEY_PATH=${SSH_KEY_PATH:-/opt/airflow/secrets/id_rsa}
+    # GeoIP
+    - GEOIP_DB_PATH=${GEOIP_DB_PATH:-/opt/airflow/data/geoip/dbip-city-lite.mmdb}
+    - MAXMIND_LICENSE_KEY=${MAXMIND_LICENSE_KEY:-}
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./spark/jobs:/opt/airflow/spark_jobs
+    - ./config:/opt/airflow/config
+    - ./data:/opt/airflow/data
+    - ./scripts:/opt/airflow/scripts
+    - airflow-logs:/opt/airflow/logs
+    - ${LOCAL_LOG_PATH:-./data/sample_logs}:/opt/airflow/logs_input:ro
+    - ${SSH_KEY_FILE:-/dev/null}:/opt/airflow/secrets/id_rsa:ro
+  networks:
+    - attack-detector
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: attack-detector-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-airflow}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-airflow}
+      - POSTGRES_DB=${POSTGRES_DB:-airflow}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-airflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - attack-detector
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: attack-detector-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username ${AIRFLOW_ADMIN_USER:-admin} \
+          --password ${AIRFLOW_ADMIN_PASSWORD:-admin} \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@localhost || true
+        echo "Airflow initialized"
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: attack-detector-airflow-webserver
+    command: webserver
+    ports:
+      - "${AIRFLOW_PORT:-8085}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: attack-detector-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  spark:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: attack-detector-spark
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=spark
+      - SPARK_MASTER_PORT=7077
+      - SPARK_MASTER_WEBUI_PORT=8082
+      - SPARK_LOCAL_DIRS=/tmp/spark
+      - SPARK_WORKER_MEMORY=${SPARK_WORKER_MEMORY:-2g}
+      - SPARK_DRIVER_MEMORY=${SPARK_DRIVER_MEMORY:-1g}
+      - SPARK_EXECUTOR_MEMORY=${SPARK_EXECUTOR_MEMORY:-1g}
+      - DATA_PATH=/opt/spark/data
+      - GEOIP_DB_PATH=/opt/spark/data/geoip/dbip-city-lite.mmdb
+    volumes:
+      - ./spark/jobs:/opt/spark/jobs
+      - ./spark/conf:/opt/spark/conf
+      - ./data:/opt/spark/data
+      - ./config:/opt/spark/config
+      - spark-logs:/opt/spark/logs
+    ports:
+      - "${SPARK_UI_PORT:-8082}:8082"
+    networks:
+      - attack-detector
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${SPARK_CONTAINER_MEMORY:-2500M}
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: attack-detector-dashboard
+    environment:
+      - DATA_PATH=/app/data
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    volumes:
+      - ./dashboard:/app
+      - ./data:/app/data:ro
+      - ./config:/app/config:ro
+    ports:
+      - "${DASHBOARD_PORT:-8501}:8501"
+    networks:
+      - attack-detector
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    depends_on:
+      - spark
+
+volumes:
+  postgres-data:
+  airflow-logs:
+  spark-logs:
+
+networks:
+  attack-detector:
+    driver: bridge
