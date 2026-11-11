@@ -439,21 +439,21 @@ def parse_caddy_json(line: str) -> dict[str, Any] | None:
 
 # Regex patterns for fail2ban.log
 FAIL2BAN_BAN = re.compile(
-    r'^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+'
-    r'fail2ban\.actions\s+\[\d+\]:\s+NOTICE\s+\[(?P<jail>\w+)\]\s+'
-    r'(?P<action>Ban|Unban|Restore Ban)\s+(?P<ip>\S+)$'
+    r"^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+"
+    r"fail2ban\.actions\s+\[\d+\]:\s+NOTICE\s+\[(?P<jail>\w+)\]\s+"
+    r"(?P<action>Ban|Unban|Restore Ban)\s+(?P<ip>\S+)$"
 )
 
 FAIL2BAN_ALREADY_BANNED = re.compile(
-    r'^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+'
-    r'fail2ban\.actions\s+\[\d+\]:\s+NOTICE\s+\[(?P<jail>\w+)\]\s+'
-    r'(?P<ip>\S+)\s+already banned$'
+    r"^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+"
+    r"fail2ban\.actions\s+\[\d+\]:\s+NOTICE\s+\[(?P<jail>\w+)\]\s+"
+    r"(?P<ip>\S+)\s+already banned$"
 )
 
 FAIL2BAN_FOUND = re.compile(
-    r'^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+'
-    r'fail2ban\.filter\s+\[\d+\]:\s+INFO\s+\[(?P<jail>\w+)\]\s+'
-    r'Found\s+(?P<ip>\S+)'
+    r"^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+"
+    r"fail2ban\.filter\s+\[\d+\]:\s+INFO\s+\[(?P<jail>\w+)\]\s+"
+    r"Found\s+(?P<ip>\S+)"
 )
 
 

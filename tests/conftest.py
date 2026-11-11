@@ -94,7 +94,7 @@ def sample_docker_json_lines():
 @pytest.fixture
 def sample_caddy_json_lines():
     """Sample Caddy JSON access log lines (Ticket 103).
-    
+
     Caddy produces structured JSON logs with request/response details.
     Format documented at: https://caddyserver.com/docs/caddyfile/directives/log
     """
@@ -114,7 +114,7 @@ def sample_caddy_json_lines():
 @pytest.fixture
 def sample_fail2ban_lines():
     """Sample fail2ban.log lines (Ticket 104).
-    
+
     fail2ban logs Ban/Unban actions for each jail.
     """
     return {
