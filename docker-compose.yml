@@ -21,6 +21,8 @@ x-airflow-common: &airflow-common
     - DATA_PATH=/opt/airflow/data
     - SPARK_HOME=/opt/spark
     - SPARK_JOBS_PATH=/opt/airflow/repo/spark/jobs
+    # Spark's Python UDF workers do not inherit the jobs' sys.path insert, so spark.jobs must be on PYTHONPATH
+    - PYTHONPATH=/opt/airflow/repo:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
     # Optional remote log sync
     - REMOTE_HOST=${REMOTE_HOST:-}
     - REMOTE_USER=${REMOTE_USER:-}
