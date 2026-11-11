@@ -20,6 +20,38 @@ def sample_auth_log_lines():
 
 
 @pytest.fixture
+def sample_auth_log_lines_v2():
+    """Real-world auth.log formats from production VPS (Ticket 102).
+
+    These are actual formats observed on Ubuntu 22.04 with modern syslog.
+    """
+    return {
+        # ISO timestamp format (systemd-journald / rsyslog modern)
+        "iso_failed_login": "2024-11-10T14:23:45.100001+00:00 vps01 sshd[12345]: Failed password for root from 203.0.113.50 port 54321 ssh2",
+        "iso_accepted_publickey": "2024-11-10T14:24:01.234567+00:00 vps01 sshd[12348]: Accepted publickey for eduardo from 177.10.20.30 port 54324 ssh2: RSA SHA256:abc123",
+        # PAM authentication failure (precedes Failed password)
+        "pam_auth_failure": "Nov 10 14:23:44 vps01 sshd[12345]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.50",
+        "pam_auth_failure_user": "Nov 10 14:23:44 vps01 sshd[12345]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.50  user=root",
+        # Disconnected from authenticating user (brute force disconnect)
+        "disconnected_auth_user": "Nov 10 14:23:50 vps01 sshd[12346]: Disconnected from authenticating user root 203.0.113.50 port 54322 [preauth]",
+        "disconnected_invalid_user": "Nov 10 14:23:51 vps01 sshd[12347]: Disconnected from invalid user admin 198.51.100.10 port 54323 [preauth]",
+        # Connection reset / closed during auth
+        "connection_reset": "Nov 10 14:23:52 vps01 sshd[12348]: Connection reset by 192.0.2.1 port 54324 [preauth]",
+        "connection_closed_preauth": "Nov 10 14:23:53 vps01 sshd[12349]: Connection closed by authenticating user root 203.0.113.50 port 54325 [preauth]",
+        # Key exchange failures (often scanners)
+        "no_matching_key_exchange": "Nov 10 14:23:54 vps01 sshd[12350]: Unable to negotiate with 198.51.100.20 port 54326: no matching key exchange method found. Their offer: diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1,diffie-hellman-group1-sha1 [preauth]",
+        # Banner exchange (usually scanners)
+        "bad_protocol_banner": "Nov 10 14:23:55 vps01 sshd[12351]: Bad protocol version identification 'GET / HTTP/1.1' from 198.51.100.30 port 54327",
+        # Maximum auth attempts exceeded
+        "max_auth_attempts": "Nov 10 14:23:56 vps01 sshd[12352]: error: maximum authentication attempts exceeded for root from 203.0.113.50 port 54328 ssh2 [preauth]",
+        # Too many authentication failures (fail2ban trigger)
+        "too_many_failures": "Nov 10 14:23:57 vps01 sshd[12353]: Disconnecting authenticating user root 203.0.113.50 port 54329: Too many authentication failures [preauth]",
+        # ISO timestamp with microseconds and timezone offset
+        "iso_with_offset": "2024-11-10T11:23:45.100001-03:00 vps01 sshd[12345]: Failed password for invalid user admin from 192.0.2.50 port 54330 ssh2",
+    }
+
+
+@pytest.fixture
 def sample_nginx_access_lines():
     """Sample nginx access.log lines (combined format) for testing."""
     return {
