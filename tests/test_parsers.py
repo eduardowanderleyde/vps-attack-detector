@@ -85,6 +85,127 @@ class TestAuthLogParser:
         assert result["source_ip"] == "192.168.1.100"
 
 
+class TestAuthLogParserV2:
+    """Tests for real-world auth.log formats (Ticket 102).
+    
+    Validates parsing of production VPS log formats including:
+    - ISO timestamp format
+    - PAM authentication failures
+    - Modern sshd disconnect messages
+    - Key exchange failures
+    - Connection resets during auth
+    """
+
+    def test_parse_iso_timestamp_failed_password(self, sample_auth_log_lines_v2):
+        """ISO timestamp format should parse correctly."""
+        result = parse_auth_log(sample_auth_log_lines_v2["iso_failed_login"])
+
+        assert result is not None
+        assert result["event_type"] == "failed_password"
+        assert result["username"] == "root"
+        assert result["source_ip"] == "203.0.113.50"
+        assert isinstance(result["timestamp"], datetime)
+
+    def test_parse_iso_timestamp_accepted_publickey(self, sample_auth_log_lines_v2):
+        """ISO timestamp with publickey auth should parse."""
+        result = parse_auth_log(sample_auth_log_lines_v2["iso_accepted_publickey"])
+
+        assert result is not None
+        assert result["event_type"] == "accepted_publickey"
+        assert result["username"] == "eduardo"
+        assert result["source_ip"] == "177.10.20.30"
+
+    def test_parse_pam_auth_failure(self, sample_auth_log_lines_v2):
+        """PAM authentication failure should extract IP."""
+        result = parse_auth_log(sample_auth_log_lines_v2["pam_auth_failure"])
+
+        assert result is not None
+        assert result["event_type"] == "pam_auth_failure"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_parse_pam_auth_failure_with_user(self, sample_auth_log_lines_v2):
+        """PAM auth failure with user= should extract username."""
+        result = parse_auth_log(sample_auth_log_lines_v2["pam_auth_failure_user"])
+
+        assert result is not None
+        assert result["event_type"] == "pam_auth_failure"
+        assert result["source_ip"] == "203.0.113.50"
+        assert result["username"] == "root"
+
+    def test_parse_disconnected_authenticating_user(self, sample_auth_log_lines_v2):
+        """Disconnected from authenticating user should extract details."""
+        result = parse_auth_log(sample_auth_log_lines_v2["disconnected_auth_user"])
+
+        assert result is not None
+        assert result["event_type"] == "disconnected_authenticating"
+        assert result["username"] == "root"
+        assert result["source_ip"] == "203.0.113.50"
+        assert result["port"] == 54322
+
+    def test_parse_disconnected_invalid_user(self, sample_auth_log_lines_v2):
+        """Disconnected from invalid user should mark as invalid."""
+        result = parse_auth_log(sample_auth_log_lines_v2["disconnected_invalid_user"])
+
+        assert result is not None
+        assert result["event_type"] == "disconnected_authenticating"
+        assert result["username"] == "admin"
+        assert result["source_ip"] == "198.51.100.10"
+        assert result["invalid_user"] is True
+
+    def test_parse_connection_reset(self, sample_auth_log_lines_v2):
+        """Connection reset should be captured."""
+        result = parse_auth_log(sample_auth_log_lines_v2["connection_reset"])
+
+        assert result is not None
+        assert result["event_type"] == "connection_reset"
+        assert result["source_ip"] == "192.0.2.1"
+        assert result["port"] == 54324
+
+    def test_parse_no_matching_key_exchange(self, sample_auth_log_lines_v2):
+        """Key exchange failure (scanner signature) should be captured."""
+        result = parse_auth_log(sample_auth_log_lines_v2["no_matching_key_exchange"])
+
+        assert result is not None
+        assert result["event_type"] == "key_exchange_failure"
+        assert result["source_ip"] == "198.51.100.20"
+
+    def test_parse_bad_protocol_banner(self, sample_auth_log_lines_v2):
+        """Bad protocol banner (HTTP scanner) should be captured."""
+        result = parse_auth_log(sample_auth_log_lines_v2["bad_protocol_banner"])
+
+        assert result is not None
+        assert result["event_type"] == "bad_protocol"
+        assert result["source_ip"] == "198.51.100.30"
+
+    def test_parse_max_auth_attempts(self, sample_auth_log_lines_v2):
+        """Maximum auth attempts exceeded should be captured."""
+        result = parse_auth_log(sample_auth_log_lines_v2["max_auth_attempts"])
+
+        assert result is not None
+        assert result["event_type"] == "max_auth_attempts"
+        assert result["username"] == "root"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_parse_too_many_failures(self, sample_auth_log_lines_v2):
+        """Too many failures disconnect should be captured."""
+        result = parse_auth_log(sample_auth_log_lines_v2["too_many_failures"])
+
+        assert result is not None
+        assert result["event_type"] == "too_many_failures"
+        assert result["username"] == "root"
+        assert result["source_ip"] == "203.0.113.50"
+
+    def test_parse_iso_with_timezone_offset(self, sample_auth_log_lines_v2):
+        """ISO timestamp with non-UTC offset should parse correctly."""
+        result = parse_auth_log(sample_auth_log_lines_v2["iso_with_offset"])
+
+        assert result is not None
+        assert result["event_type"] == "failed_password"
+        assert result["username"] == "admin"
+        assert result["invalid_user"] is True
+        assert result["source_ip"] == "192.0.2.50"
+
+
 class TestNginxAccessParser:
     """Tests for nginx access.log parser (combined format)."""
 
