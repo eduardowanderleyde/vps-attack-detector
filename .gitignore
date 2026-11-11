@@ -60,6 +60,8 @@ data/silver/
 data/gold/
 data/threat_feeds/
 data/reports/
+data/checkpoints/
+data/output/
 
 # Parquet and checkpoint files
 *.parquet
