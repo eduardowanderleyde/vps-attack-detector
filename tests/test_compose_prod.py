@@ -44,11 +44,49 @@ def load_compose_config() -> dict:
     return yaml.safe_load(result.stdout)
 
 
+def _compose_loader() -> type[yaml.SafeLoader]:
+    """Safe YAML loader that accepts Compose's !override tag."""
+
+    class ComposeLoader(yaml.SafeLoader):
+        pass
+
+    def construct_override(loader: yaml.SafeLoader, node: yaml.Node):
+        if isinstance(node, yaml.SequenceNode):
+            return loader.construct_sequence(node)
+        if isinstance(node, yaml.MappingNode):
+            return loader.construct_mapping(node)
+        return loader.construct_scalar(node)
+
+    ComposeLoader.add_constructor("!override", construct_override)
+    return ComposeLoader
+
+
+def port_binds_localhost(port: object) -> bool:
+    """True when a compose port string or config dict binds 127.0.0.1."""
+    if isinstance(port, str):
+        return port.startswith("127.0.0.1:")
+    if isinstance(port, dict):
+        return port.get("host_ip") == "127.0.0.1"
+    return False
+
+
+def volume_text(volume: object) -> str:
+    """Normalize a compose volume string or config dict for assertions."""
+    if isinstance(volume, str):
+        return volume
+    if isinstance(volume, dict):
+        source = volume.get("source", "")
+        target = volume.get("target", "")
+        mode = ":ro" if volume.get("read_only") else ""
+        return f"{source}:{target}{mode}"
+    return str(volume)
+
+
 def load_prod_yaml() -> dict:
     """Load docker-compose.prod.yml directly (no merge)."""
     path = os.path.join(PROJECT_ROOT, COMPOSE_PROD_FILE)
     with open(path) as f:
-        return yaml.safe_load(f)
+        return yaml.load(f, Loader=_compose_loader())
 
 
 class TestResourceLimits:
@@ -107,11 +145,11 @@ class TestLogAccess:
         spark = config.get("services", {}).get("spark", {})
         volumes = spark.get("volumes", [])
 
-        host_log_mounts = [v for v in volumes if "/host-logs" in v]
+        host_log_mounts = [v for v in volumes if "/host-logs" in volume_text(v)]
         assert len(host_log_mounts) > 0, "No host log mounts found"
 
         for mount in host_log_mounts:
-            assert ":ro" in mount, f"Host log mount not read-only: {mount}"
+            assert ":ro" in volume_text(mount), f"Host log mount not read-only: {mount}"
 
 
 class TestCoexistence:
@@ -152,8 +190,7 @@ class TestCoexistence:
             svc = services.get(name, {})
             ports = svc.get("ports", [])
             for port in ports:
-                port_str = str(port)
-                assert port_str.startswith("127.0.0.1:"), (
+                assert port_binds_localhost(port), (
                     f"Service {name} port {port} should bind to 127.0.0.1"
                 )
 

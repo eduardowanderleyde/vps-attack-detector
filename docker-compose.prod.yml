@@ -24,7 +24,7 @@ services:
           memory: 256M
 
   airflow-webserver:
-    ports:
+    ports: !override
       - "127.0.0.1:${AIRFLOW_PORT:-8085}:8080"
     deploy:
       resources:
@@ -76,7 +76,7 @@ services:
       - ${HOST_AUTH_LOG:-/var/log/auth.log}:/host-logs/auth.log:ro
       - ${HOST_FAIL2BAN_LOG:-/var/log/fail2ban.log}:/host-logs/fail2ban.log:ro
       - ${HOST_CADDY_LOG_DIR:-/var/log/caddy}:/host-logs/caddy:ro
-    ports:
+    ports: !override
       - "127.0.0.1:${SPARK_UI_PORT:-8082}:8082"
     deploy:
       resources:
@@ -87,7 +87,7 @@ services:
           memory: 384M
 
   dashboard:
-    ports:
+    ports: !override
       - "127.0.0.1:${DASHBOARD_PORT:-8501}:8501"
     environment:
       - DATA_PATH=/app/data
