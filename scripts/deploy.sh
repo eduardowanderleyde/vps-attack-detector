@@ -71,6 +71,7 @@ if [ ! -f .env ]; then
     sed -i "s/AIRFLOW_ADMIN_PASSWORD=.*/AIRFLOW_ADMIN_PASSWORD=$AIRFLOW_PASSWORD/" .env
     sed -i "s/AIRFLOW_SECRET_KEY=.*/AIRFLOW_SECRET_KEY=$AIRFLOW_SECRET/" .env
     sed -i "s/AIRFLOW_FERNET_KEY=.*/AIRFLOW_FERNET_KEY=$FERNET_KEY/" .env
+    sed -i "s/^AIRFLOW_UID=.*/AIRFLOW_UID=$(id -u)/" .env
     
     chmod 600 .env
     info "✓ .env created with secure passwords"

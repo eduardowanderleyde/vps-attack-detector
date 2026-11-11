@@ -7,10 +7,10 @@ x-prod-resources: &prod-resources
   deploy:
     resources:
       limits:
-        memory: ${POSTGRES_MEM_LIMIT:-512M}
+        memory: ${POSTGRES_MEM_LIMIT:-256M}
         cpus: '0.5'
       reservations:
-        memory: 256M
+        memory: 128M
 
 services:
   postgres:
@@ -18,18 +18,21 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${POSTGRES_MEM_LIMIT:-512M}
+          memory: ${POSTGRES_MEM_LIMIT:-256M}
           cpus: '0.5'
         reservations:
-          memory: 256M
+          memory: 128M
 
   airflow-webserver:
+    environment:
+      # 4 gunicorn workers (the default) went over 512M on the VPS; 2 still peak at startup, so 768M
+      - AIRFLOW__WEBSERVER__WORKERS=2
     ports: !override
       - "127.0.0.1:${AIRFLOW_PORT:-8085}:8080"
     deploy:
       resources:
         limits:
-          memory: ${AIRFLOW_WEB_MEM_LIMIT:-512M}
+          memory: ${AIRFLOW_WEB_MEM_LIMIT:-768M}
           cpus: '0.5'
         reservations:
           memory: 256M
@@ -41,13 +44,21 @@ services:
       start_period: 60s
 
   airflow-scheduler:
+    # The DAG runs the Spark jobs here (LocalExecutor + Spark local mode), so this container
+    # reads the host logs: LOCAL_LOG_PATH=/var/log in .env mounts the directory read-only at
+    # /opt/airflow/logs_input. A directory, not single files, so a rotated log shows its new inode.
+    group_add:
+      - ${HOST_ADM_GID:-4}
+    environment:
+      # heap of the Spark driver each job starts in this container (ADR-007)
+      - PYSPARK_SUBMIT_ARGS=--driver-memory ${SPARK_DRIVER_MEMORY:-512m} pyspark-shell
     deploy:
       resources:
         limits:
-          memory: ${AIRFLOW_SCHEDULER_MEM_LIMIT:-384M}
-          cpus: '0.5'
+          memory: ${AIRFLOW_SCHEDULER_MEM_LIMIT:-1536M}
+          cpus: '1.0'
         reservations:
-          memory: 192M
+          memory: 384M
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)"]
       interval: 60s
@@ -87,10 +98,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${SPARK_MEM_LIMIT:-768M}
+          memory: ${SPARK_MEM_LIMIT:-128M}
           cpus: '1.0'
         reservations:
-          memory: 384M
+          memory: 32M
 
   dashboard:
     ports: !override

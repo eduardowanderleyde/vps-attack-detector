@@ -1,6 +1,8 @@
 version: '3.8'
 
 x-airflow-common: &airflow-common
+  # run as the host user (official Airflow pattern) so the jobs can write ./data; set AIRFLOW_UID=$(id -u) in .env
+  user: "${AIRFLOW_UID:-50000}:0"
   build:
     context: .
     dockerfile: Dockerfile.airflow
@@ -18,6 +20,9 @@ x-airflow-common: &airflow-common
     - DETECTION_CONFIG_PATH=/opt/airflow/config/detection_rules.yaml
     - DATA_PATH=/opt/airflow/data
     - SPARK_HOME=/opt/spark
+    - SPARK_JOBS_PATH=/opt/airflow/repo/spark/jobs
+    # Spark's Python UDF workers do not inherit the jobs' sys.path insert, so spark.jobs must be on PYTHONPATH
+    - PYTHONPATH=/opt/airflow/repo:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.7-src.zip
     # Optional remote log sync
     - REMOTE_HOST=${REMOTE_HOST:-}
     - REMOTE_USER=${REMOTE_USER:-}
@@ -30,7 +35,9 @@ x-airflow-common: &airflow-common
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
-    - ./spark/jobs:/opt/airflow/spark_jobs
+    # the jobs import spark.jobs.utils from the repo root (3 levels above each job file),
+    # so keep the repo layout: /opt/airflow/repo/spark/jobs
+    - ./spark:/opt/airflow/repo/spark
     - ./config:/opt/airflow/config
     - ./data:/opt/airflow/data
     - ./scripts:/opt/airflow/scripts

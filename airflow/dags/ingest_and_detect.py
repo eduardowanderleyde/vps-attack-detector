@@ -44,6 +44,9 @@ default_args = {
     schedule="@hourly",
     start_date=datetime(2024, 1, 1),
     catchup=False,
+    # each task starts its own Spark JVM: one at a time keeps the scheduler under its memory limit
+    max_active_tasks=1,
+    max_active_runs=1,
     default_args=default_args,
     tags=["attack-detector", "ingestion", "detection"],
 )
@@ -191,7 +194,7 @@ def ingest_and_detect():
             --bronze-path "{DATA_PATH}/bronze" \
             --silver-path "{DATA_PATH}/silver" \
             --event-date "{{{{ ds }}}}" \
-            --geoip-db "{GEOIP_DB_PATH}" || true
+            --geoip-db "{GEOIP_DB_PATH}"
         """,
     )
 

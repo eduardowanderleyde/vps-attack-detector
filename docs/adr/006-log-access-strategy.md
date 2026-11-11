@@ -56,6 +56,6 @@ Se `group_add: adm` não funcionar (GID diferente, SELinux, etc.):
 
 ## Notas de Implementação
 
-- `LOCAL_LOG_PATH` no .env aponta para `/host-logs` dentro do container
+- Os jobs rodam no `airflow-scheduler` (Spark em modo local), não no container `spark`. Em produção, `LOCAL_LOG_PATH=/var/log` monta o diretório read-only em `/opt/airflow/logs_input`, e o scheduler recebe `group_add` do GID adm. Montar o diretório, e não cada arquivo, deixa o checkpoint ver o inode novo depois da rotação.
 - DEPLOY.md documenta verificação de GID do grupo adm
 - Scripts de deploy verificam permissões antes de iniciar
