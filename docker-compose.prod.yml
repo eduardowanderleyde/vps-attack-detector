@@ -1,0 +1,124 @@
+# Production overrides for VPS deployment
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# See docs/SPEC-v2-deploy.md and ADRs 006-012 for architecture decisions.
+
+x-prod-resources: &prod-resources
+  deploy:
+    resources:
+      limits:
+        memory: ${POSTGRES_MEM_LIMIT:-512M}
+        cpus: '0.5'
+      reservations:
+        memory: 256M
+
+services:
+  postgres:
+    <<: *prod-resources
+    deploy:
+      resources:
+        limits:
+          memory: ${POSTGRES_MEM_LIMIT:-512M}
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+
+  airflow-webserver:
+    ports: !override
+      - "127.0.0.1:${AIRFLOW_PORT:-8085}:8080"
+    deploy:
+      resources:
+        limits:
+          memory: ${AIRFLOW_WEB_MEM_LIMIT:-512M}
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  airflow-scheduler:
+    deploy:
+      resources:
+        limits:
+          memory: ${AIRFLOW_SCHEDULER_MEM_LIMIT:-384M}
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  spark:
+    group_add:
+      - ${HOST_ADM_GID:-4}
+    environment:
+      - SPARK_WORKER_MEMORY=${SPARK_WORKER_MEMORY:-512m}
+      - SPARK_DRIVER_MEMORY=${SPARK_DRIVER_MEMORY:-512m}
+      - SPARK_EXECUTOR_MEMORY=${SPARK_EXECUTOR_MEMORY:-512m}
+      - DATA_PATH=/opt/spark/data
+      - HOST_LOG_PATH=/host-logs
+      - GEOIP_DB_PATH=/opt/spark/data/geoip/dbip-city-lite.mmdb
+      - TRUSTED_IP_CIDRS=${TRUSTED_IP_CIDRS:-}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
+    volumes:
+      - ./spark/jobs:/opt/spark/jobs:ro
+      - ./spark/conf:/opt/spark/conf:ro
+      - ./data:/opt/spark/data
+      - ./config:/opt/spark/config:ro
+      - spark-logs:/opt/spark/logs
+      - ${HOST_AUTH_LOG:-/var/log/auth.log}:/host-logs/auth.log:ro
+      - ${HOST_FAIL2BAN_LOG:-/var/log/fail2ban.log}:/host-logs/fail2ban.log:ro
+      - ${HOST_CADDY_LOG_DIR:-/var/log/caddy}:/host-logs/caddy:ro
+    ports: !override
+      - "127.0.0.1:${SPARK_UI_PORT:-8082}:8082"
+    deploy:
+      resources:
+        limits:
+          memory: ${SPARK_MEM_LIMIT:-768M}
+          cpus: '1.0'
+        reservations:
+          memory: 384M
+
+  dashboard:
+    ports: !override
+      - "127.0.0.1:${DASHBOARD_PORT:-8501}:8501"
+    environment:
+      - DATA_PATH=/app/data
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - TRUSTED_IP_CIDRS=${TRUSTED_IP_CIDRS:-}
+    deploy:
+      resources:
+        limits:
+          memory: ${DASHBOARD_MEM_LIMIT:-256M}
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  postgres-data:
+    name: attack-detector-postgres-data
+  airflow-logs:
+    name: attack-detector-airflow-logs
+  spark-logs:
+    name: attack-detector-spark-logs
+
+networks:
+  attack-detector:
+    name: attack-detector-net
+    driver: bridge
