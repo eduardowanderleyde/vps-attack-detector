@@ -61,12 +61,12 @@ def get_active_bans(fail2ban_df: pd.DataFrame) -> set[str]:
 ### 5. Blocklist generator
 
 ```python
-def generate_blocklist(alerts_df, fail2ban_df, min_severity='high'):
+def generate_blocklist(alerts_df, fail2ban_df, min_severity="high"):
     active_bans = get_active_bans(fail2ban_df)
-    
+
     # Filtra IPs que NÃO estão banidos
-    new_threats = alerts_df[~alerts_df['source_ip'].isin(active_bans)]
-    
+    new_threats = alerts_df[~alerts_df["source_ip"].isin(active_bans)]
+
     # Gera blocklist apenas com novos IPs
     ...
 ```

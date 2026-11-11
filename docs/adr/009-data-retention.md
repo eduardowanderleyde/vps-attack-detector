@@ -15,20 +15,20 @@ O pipeline gera dados Parquet em bronze/silver/gold layers. Sem limpeza, o disco
 # scripts/prune_old_data.py
 def prune_old_partitions(base_path: str, retention_days: int) -> list[str]:
     """Remove partitions older than retention_days.
-    
+
     Returns list of removed partition paths for audit.
     """
     cutoff = datetime.now() - timedelta(days=retention_days)
     removed = []
-    
-    for layer in ['bronze', 'silver', 'gold']:
+
+    for layer in ["bronze", "silver", "gold"]:
         layer_path = os.path.join(base_path, layer)
         for partition_dir in find_date_partitions(layer_path):
             partition_date = extract_date_from_partition(partition_dir)
             if partition_date < cutoff:
                 shutil.rmtree(partition_dir)
                 removed.append(partition_dir)
-    
+
     return removed
 ```
 

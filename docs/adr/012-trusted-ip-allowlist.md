@@ -26,13 +26,14 @@ TRUSTED_IP_CIDRS=192.168.1.0/24,10.0.0.0/8,177.x.x.x/32
 ```python
 import ipaddress
 
+
 def is_trusted_ip(ip: str, cidrs: list[str]) -> bool:
     """Check if IP is in any of the trusted CIDRs.
-    
+
     Args:
         ip: IP address to check (IPv4 or IPv6)
         cidrs: List of CIDR strings (e.g., ["192.168.1.0/24", "10.0.0.0/8"])
-    
+
     Returns:
         True if IP is in any trusted CIDR, False otherwise.
     """
@@ -51,14 +52,16 @@ def is_trusted_ip(ip: str, cidrs: list[str]) -> bool:
 ```python
 def detect_success_after_failure(df, config, trusted_cidrs=None):
     # ... detecção normal ...
-    
+
     if trusted_cidrs:
         # Remove alertas de IPs confiáveis com login via publickey
         alerts = alerts[
-            ~(alerts['source_ip'].apply(lambda ip: is_trusted_ip(ip, trusted_cidrs)) &
-              (alerts['auth_method'] == 'publickey'))
+            ~(
+                alerts["source_ip"].apply(lambda ip: is_trusted_ip(ip, trusted_cidrs))
+                & (alerts["auth_method"] == "publickey")
+            )
         ]
-    
+
     return alerts
 ```
 
