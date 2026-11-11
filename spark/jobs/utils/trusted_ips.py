@@ -6,10 +6,12 @@ reducing false positives for legitimate operator access.
 
 import ipaddress
 import os
-from typing import Sequence
+from collections.abc import Sequence
 
 
-def parse_trusted_cidrs(cidrs_str: str | None) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+def parse_trusted_cidrs(
+    cidrs_str: str | None,
+) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
     """Parse a comma-separated string of CIDRs into network objects.
 
     Args:
@@ -81,7 +83,9 @@ def is_trusted_ip(
     return False
 
 
-def get_trusted_networks_from_env() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+def get_trusted_networks_from_env() -> list[
+    ipaddress.IPv4Network | ipaddress.IPv6Network
+]:
     """Load trusted CIDRs from TRUSTED_IP_CIDRS environment variable.
 
     Returns:

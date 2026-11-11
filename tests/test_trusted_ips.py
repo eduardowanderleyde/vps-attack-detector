@@ -3,14 +3,13 @@
 Validates CIDR parsing and IP membership checking.
 """
 
-import os
 import pytest
 
 from spark.jobs.utils.trusted_ips import (
-    parse_trusted_cidrs,
-    is_trusted_ip,
-    get_trusted_networks_from_env,
     filter_trusted_ips,
+    get_trusted_networks_from_env,
+    is_trusted_ip,
+    parse_trusted_cidrs,
 )
 
 
