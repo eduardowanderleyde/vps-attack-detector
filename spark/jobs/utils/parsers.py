@@ -372,3 +372,148 @@ def parse_docker_json(line: str) -> dict[str, Any] | None:
         "message": data["log"].rstrip("\n"),
         "attrs": data.get("attrs"),
     }
+
+
+def parse_caddy_json(line: str) -> dict[str, Any] | None:
+    """Parse a Caddy JSON access log line.
+
+    Caddy produces structured JSON logs when configured with:
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+
+    Args:
+        line: Raw JSON line from Caddy access log
+
+    Returns:
+        Dict with extracted fields or None if line not recognized.
+        Fields: timestamp, source_ip, method, path, protocol, status,
+                size, duration, user_agent, referer, host
+    """
+    if not line or not line.strip():
+        return None
+
+    try:
+        data = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+
+    if "request" not in data:
+        return None
+
+    request = data["request"]
+    if "remote_ip" not in request:
+        return None
+
+    ts = data.get("ts")
+    if ts is None:
+        return None
+
+    try:
+        timestamp = datetime.fromtimestamp(ts)
+    except (ValueError, TypeError, OSError):
+        return None
+
+    headers = request.get("headers", {})
+    user_agent_list = headers.get("User-Agent", [])
+    user_agent = user_agent_list[0] if user_agent_list else None
+    referer_list = headers.get("Referer", [])
+    referer = referer_list[0] if referer_list else None
+
+    return {
+        "timestamp": timestamp,
+        "source_ip": request.get("remote_ip"),
+        "remote_port": request.get("remote_port"),
+        "method": request.get("method"),
+        "path": request.get("uri"),
+        "protocol": request.get("proto"),
+        "host": request.get("host"),
+        "status": data.get("status"),
+        "size": data.get("size", 0),
+        "duration": data.get("duration", 0),
+        "user_agent": user_agent,
+        "referer": referer,
+    }
+
+
+# Regex patterns for fail2ban.log
+FAIL2BAN_BAN = re.compile(
+    r'^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+'
+    r'fail2ban\.actions\s+\[\d+\]:\s+NOTICE\s+\[(?P<jail>\w+)\]\s+'
+    r'(?P<action>Ban|Unban|Restore Ban)\s+(?P<ip>\S+)$'
+)
+
+FAIL2BAN_ALREADY_BANNED = re.compile(
+    r'^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+'
+    r'fail2ban\.actions\s+\[\d+\]:\s+NOTICE\s+\[(?P<jail>\w+)\]\s+'
+    r'(?P<ip>\S+)\s+already banned$'
+)
+
+FAIL2BAN_FOUND = re.compile(
+    r'^(?P<date>\d{4}-\d{2}-\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2}),\d+\s+'
+    r'fail2ban\.filter\s+\[\d+\]:\s+INFO\s+\[(?P<jail>\w+)\]\s+'
+    r'Found\s+(?P<ip>\S+)'
+)
+
+
+def parse_fail2ban_log(line: str) -> dict[str, Any] | None:
+    """Parse a line from fail2ban.log.
+
+    Args:
+        line: Raw line from fail2ban.log
+
+    Returns:
+        Dict with extracted fields or None if line not recognized.
+        Fields: timestamp, action, jail, source_ip
+    """
+    if not line or not line.strip():
+        return None
+
+    if match := FAIL2BAN_BAN.match(line):
+        groups = match.groupdict()
+        timestamp_str = f"{groups['date']} {groups['time']}"
+        try:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+
+        action = groups["action"].lower().replace(" ", "_")
+        return {
+            "timestamp": timestamp,
+            "action": action,
+            "jail": groups["jail"],
+            "source_ip": groups["ip"],
+        }
+
+    if match := FAIL2BAN_ALREADY_BANNED.match(line):
+        groups = match.groupdict()
+        timestamp_str = f"{groups['date']} {groups['time']}"
+        try:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+
+        return {
+            "timestamp": timestamp,
+            "action": "already_banned",
+            "jail": groups["jail"],
+            "source_ip": groups["ip"],
+        }
+
+    if match := FAIL2BAN_FOUND.match(line):
+        groups = match.groupdict()
+        timestamp_str = f"{groups['date']} {groups['time']}"
+        try:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return None
+
+        return {
+            "timestamp": timestamp,
+            "action": "found",
+            "jail": groups["jail"],
+            "source_ip": groups["ip"],
+        }
+
+    return None
