@@ -41,13 +41,18 @@ services:
       start_period: 60s
 
   airflow-scheduler:
+    # The DAG runs the Spark jobs here (LocalExecutor + Spark local mode), so this container
+    # reads the host logs: LOCAL_LOG_PATH=/var/log in .env mounts the directory read-only at
+    # /opt/airflow/logs_input. A directory, not single files, so a rotated log shows its new inode.
+    group_add:
+      - ${HOST_ADM_GID:-4}
     deploy:
       resources:
         limits:
-          memory: ${AIRFLOW_SCHEDULER_MEM_LIMIT:-384M}
-          cpus: '0.5'
+          memory: ${AIRFLOW_SCHEDULER_MEM_LIMIT:-1536M}
+          cpus: '1.0'
         reservations:
-          memory: 192M
+          memory: 384M
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)"]
       interval: 60s
