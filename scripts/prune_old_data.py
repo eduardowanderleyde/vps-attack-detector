@@ -14,9 +14,9 @@ import logging
 import os
 import re
 import shutil
+from collections.abc import Iterator
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterator
 
 logging.basicConfig(
     level=logging.INFO,
@@ -137,7 +137,9 @@ def prune_partitions(
         size = calculate_size(partition_path)
 
         if dry_run:
-            logger.info(f"[DRY-RUN] Would remove: {partition_path} ({format_size(size)})")
+            logger.info(
+                f"[DRY-RUN] Would remove: {partition_path} ({format_size(size)})"
+            )
         else:
             try:
                 shutil.rmtree(partition_path)
@@ -156,8 +158,7 @@ def prune_partitions(
     if audit_log_path and audit_lines and not dry_run:
         audit_log_path.parent.mkdir(parents=True, exist_ok=True)
         with open(audit_log_path, "a") as f:
-            for line in audit_lines:
-                f.write(line + "\n")
+            f.writelines(line + "\n" for line in audit_lines)
             f.write(
                 f"{datetime.now().astimezone().isoformat()} Total: {removed_count} partitions, "
                 f"{format_size(removed_bytes)} freed\n"
@@ -223,7 +224,9 @@ def main():
         return
 
     total_size = sum(calculate_size(p) for p, _ in partitions)
-    logger.info(f"Found {len(partitions)} partitions to prune ({format_size(total_size)})")
+    logger.info(
+        f"Found {len(partitions)} partitions to prune ({format_size(total_size)})"
+    )
 
     result = prune_partitions(partitions, args.dry_run, args.audit_log)
 

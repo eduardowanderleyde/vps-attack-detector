@@ -3,18 +3,18 @@
 Validates partition discovery, age filtering, and safe deletion.
 """
 
-import os
-import pytest
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from scripts.prune_old_data import (
+    calculate_size,
     find_date_partitions,
+    format_size,
     get_partitions_to_prune,
     prune_partitions,
-    calculate_size,
-    format_size,
 )
 
 
@@ -92,9 +92,7 @@ class TestGetPartitionsToPrune:
     def test_filters_by_layer(self, temp_data_dir):
         """Should only prune specified layers."""
         cutoff = datetime.now() - timedelta(days=30)
-        partitions = get_partitions_to_prune(
-            temp_data_dir, cutoff, layers=["bronze"]
-        )
+        partitions = get_partitions_to_prune(temp_data_dir, cutoff, layers=["bronze"])
 
         for path, _ in partitions:
             assert "bronze" in str(path)
@@ -144,7 +142,7 @@ class TestPrunePartitions:
         partitions = get_partitions_to_prune(temp_data_dir, cutoff)
 
         audit_path = temp_data_dir / "retention-audit.log"
-        result = prune_partitions(partitions, dry_run=False, audit_log_path=audit_path)
+        prune_partitions(partitions, dry_run=False, audit_log_path=audit_path)
 
         assert audit_path.exists()
         content = audit_path.read_text()
