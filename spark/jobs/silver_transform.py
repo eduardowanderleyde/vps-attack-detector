@@ -13,43 +13,38 @@ import argparse
 import os
 import sys
 from datetime import datetime
-from typing import Any
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import (
-    udf,
     col,
-    lit,
-    when,
-    to_timestamp,
     date_format,
+    lit,
+    to_timestamp,
+    udf,
+    when,
 )
 from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
     IntegerType,
-    TimestampType,
-    BooleanType,
-    DoubleType,
     MapType,
+    StringType,
 )
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from spark.jobs.utils.parsers import (
-    parse_auth_log,
-    parse_nginx_access,
-    parse_nginx_error,
-    parse_docker_json,
+sys.path.insert(
+    0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 )
 from spark.jobs.utils.geoip import GeoIPEnricher
+from spark.jobs.utils.parsers import (
+    parse_auth_log,
+    parse_docker_json,
+    parse_nginx_access,
+    parse_nginx_error,
+)
 
 
 def create_spark_session(app_name: str = "SilverTransform") -> SparkSession:
     """Create a Spark session configured for local mode."""
     return (
-        SparkSession.builder
-        .appName(app_name)
+        SparkSession.builder.appName(app_name)
         .config("spark.sql.parquet.compression.codec", "snappy")
         .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
         .getOrCreate()
@@ -98,10 +93,7 @@ def create_geoip_udf(geoip_db_path: str | None):
     @udf(MapType(StringType(), StringType()))
     def enrich_ip(ip: str) -> dict[str, str]:
         result = enricher.enrich(ip)
-        return {
-            k: str(v) if v is not None else None
-            for k, v in result.items()
-        }
+        return {k: str(v) if v is not None else None for k, v in result.items()}
 
     return enrich_ip
 
@@ -117,7 +109,8 @@ def transform_auth_logs(df: DataFrame, geoip_udf) -> DataFrame:
         col("parsed.username").alias("username"),
         col("parsed.port").cast(IntegerType()).alias("port"),
         when(col("parsed.invalid_user") == "true", True)
-        .otherwise(False).alias("invalid_user"),
+        .otherwise(False)
+        .alias("invalid_user"),
         col("source_file"),
         col("ingestion_timestamp"),
         lit("ssh_events").alias("event_category"),
@@ -227,12 +220,13 @@ def transform_logs(
                 df_silver = df_silver.drop("geo")
 
             df_silver = df_silver.withColumn(
-                "event_date",
-                date_format(col("event_timestamp"), "yyyy-MM-dd")
+                "event_date", date_format(col("event_timestamp"), "yyyy-MM-dd")
             )
 
             output_dir = os.path.join(silver_path, category)
-            df_silver.write.mode("overwrite").partitionBy("event_date").parquet(output_dir)
+            df_silver.write.mode("overwrite").partitionBy("event_date").parquet(
+                output_dir
+            )
 
             counts[log_type] = df_silver.count()
             print(f"Transformed {counts[log_type]} {log_type} events to {output_dir}")

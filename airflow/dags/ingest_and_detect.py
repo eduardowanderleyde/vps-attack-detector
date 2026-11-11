@@ -15,7 +15,9 @@ from airflow.operators.bash import BashOperator
 
 DATA_PATH = os.getenv("DATA_PATH", "/opt/airflow/data")
 SPARK_JOBS_PATH = os.getenv("SPARK_JOBS_PATH", "/opt/airflow/spark_jobs")
-CONFIG_PATH = os.getenv("DETECTION_CONFIG_PATH", "/opt/airflow/config/detection_rules.yaml")
+CONFIG_PATH = os.getenv(
+    "DETECTION_CONFIG_PATH", "/opt/airflow/config/detection_rules.yaml"
+)
 LOGS_INPUT_PATH = os.getenv("LOGS_INPUT_PATH", "/opt/airflow/logs_input")
 GEOIP_DB_PATH = os.getenv("GEOIP_DB_PATH", "")
 
@@ -64,8 +66,11 @@ def ingest_and_detect():
             os.makedirs(local_dir, exist_ok=True)
 
             cmd = [
-                "rsync", "-avz", "--timeout=60",
-                "-e", f"ssh -p {REMOTE_SSH_PORT} -i {SSH_KEY_PATH} -o StrictHostKeyChecking=no",
+                "rsync",
+                "-avz",
+                "--timeout=60",
+                "-e",
+                f"ssh -p {REMOTE_SSH_PORT} -i {SSH_KEY_PATH} -o StrictHostKeyChecking=no",
                 f"{REMOTE_USER}@{REMOTE_HOST}:{remote_path}",
                 local_dir,
             ]
@@ -165,10 +170,15 @@ def ingest_and_detect():
     )
 
     sync = sync_remote_logs()
-    date = get_execution_date()
+    _date = get_execution_date()
 
     sync >> [ingest_auth, ingest_nginx_access, ingest_nginx_error, ingest_docker]
-    [ingest_auth, ingest_nginx_access, ingest_nginx_error, ingest_docker] >> transform_silver
+    [
+        ingest_auth,
+        ingest_nginx_access,
+        ingest_nginx_error,
+        ingest_docker,
+    ] >> transform_silver
     transform_silver >> detect_attacks
 
 

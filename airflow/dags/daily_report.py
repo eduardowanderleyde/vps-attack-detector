@@ -35,14 +35,14 @@ def daily_report():
     @task
     def generate_report(**context) -> str:
         """Generate markdown report from Gold layer data."""
-        import pandas as pd
         from datetime import datetime, timedelta
+
+        import pandas as pd
 
         report_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         os.makedirs(REPORTS_PATH, exist_ok=True)
 
         alerts_path = os.path.join(DATA_PATH, "gold", "alerts")
-        ip_stats_path = os.path.join(DATA_PATH, "gold", "ip_stats")
 
         report_lines = [
             f"# Relatório de Segurança - {report_date}",
@@ -76,14 +76,21 @@ def daily_report():
 
                 report_lines.append("## Top 5 IPs Atacantes")
                 report_lines.append("")
-                top_ips = day_alerts.groupby("source_ip").size().sort_values(ascending=False).head(5)
+                top_ips = (
+                    day_alerts.groupby("source_ip")
+                    .size()
+                    .sort_values(ascending=False)
+                    .head(5)
+                )
                 for ip, count in top_ips.items():
                     report_lines.append(f"- `{ip}`: {count} alertas")
                 report_lines.append("")
 
                 report_lines.append("## Alertas por Tipo")
                 report_lines.append("")
-                by_type = day_alerts.groupby("alert_type").size().sort_values(ascending=False)
+                by_type = (
+                    day_alerts.groupby("alert_type").size().sort_values(ascending=False)
+                )
                 for alert_type, count in by_type.items():
                     report_lines.append(f"- **{alert_type}:** {count}")
                 report_lines.append("")
@@ -93,7 +100,9 @@ def daily_report():
                     report_lines.append("## Alertas Críticos")
                     report_lines.append("")
                     for _, alert in critical.iterrows():
-                        report_lines.append(f"### {alert['alert_type']} - {alert['source_ip']}")
+                        report_lines.append(
+                            f"### {alert['alert_type']} - {alert['source_ip']}"
+                        )
                         report_lines.append(f"- **Hora:** {alert['timestamp']}")
                         report_lines.append(f"- **Evidência:** {alert['evidence']}")
                         report_lines.append("")
@@ -102,7 +111,9 @@ def daily_report():
             report_lines.append(f"Erro ao gerar relatório: {e}")
 
         report_lines.append("---")
-        report_lines.append("*Relatório gerado automaticamente pelo VPS Attack Detector*")
+        report_lines.append(
+            "*Relatório gerado automaticamente pelo VPS Attack Detector*"
+        )
 
         report_content = "\n".join(report_lines)
         report_file = os.path.join(REPORTS_PATH, f"{report_date}.md")

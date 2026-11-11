@@ -1,7 +1,6 @@
 """Pytest configuration and shared fixtures."""
 
 import pytest
-from datetime import datetime
 
 
 @pytest.fixture
@@ -41,7 +40,7 @@ def sample_nginx_error_lines():
     return {
         "file_not_found": '2024/11/10 14:30:00 [error] 1234#1234: *5678 open() "/var/www/html/.env" failed (2: No such file or directory), client: 203.0.113.50, server: example.com, request: "GET /.env HTTP/1.1", host: "example.com"',
         "upstream_timeout": '2024/11/10 14:30:01 [error] 1234#1234: *5679 upstream timed out (110: Connection timed out) while connecting to upstream, client: 192.168.1.1, server: example.com, request: "GET /api HTTP/1.1", upstream: "http://127.0.0.1:8000/api"',
-        "connection_reset": '2024/11/10 14:30:02 [error] 1234#1234: *5680 recv() failed (104: Connection reset by peer) while reading response header from upstream',
+        "connection_reset": "2024/11/10 14:30:02 [error] 1234#1234: *5680 recv() failed (104: Connection reset by peer) while reading response header from upstream",
         "warning": '2024/11/10 14:30:03 [warn] 1234#1234: conflicting server name "example.com" on 0.0.0.0:80, ignored',
         "malformed": "Not a valid error log",
     }

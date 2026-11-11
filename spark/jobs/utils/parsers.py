@@ -10,56 +10,51 @@ Supported formats:
 - Docker JSON logs
 """
 
-import re
 import json
+import re
 from datetime import datetime
 from typing import Any
 
-
 # Regex patterns for auth.log
 AUTH_LOG_BASE = re.compile(
-    r'^(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+'
-    r'(?P<host>\S+)\s+(?P<service>\w+)\[(?P<pid>\d+)\]:\s+(?P<message>.+)$'
+    r"^(?P<month>\w{3})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+"
+    r"(?P<host>\S+)\s+(?P<service>\w+)\[(?P<pid>\d+)\]:\s+(?P<message>.+)$"
 )
 
 FAILED_PASSWORD = re.compile(
-    r'Failed password for (?P<invalid>invalid user )?(?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)'
+    r"Failed password for (?P<invalid>invalid user )?(?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)"
 )
 
 ACCEPTED_PASSWORD = re.compile(
-    r'Accepted password for (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)'
+    r"Accepted password for (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)"
 )
 
 ACCEPTED_PUBLICKEY = re.compile(
-    r'Accepted publickey for (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)'
+    r"Accepted publickey for (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)"
 )
 
 INVALID_USER = re.compile(
-    r'Invalid user (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)'
+    r"Invalid user (?P<username>\S+) from (?P<ip>\S+) port (?P<port>\d+)"
 )
 
-CONNECTION_CLOSED = re.compile(
-    r'Connection closed by (?P<ip>\S+) port (?P<port>\d+)'
-)
+CONNECTION_CLOSED = re.compile(r"Connection closed by (?P<ip>\S+) port (?P<port>\d+)")
 
-DISCONNECT = re.compile(
-    r'Received disconnect from (?P<ip>\S+) port (?P<port>\d+)'
-)
+DISCONNECT = re.compile(r"Received disconnect from (?P<ip>\S+) port (?P<port>\d+)")
 
 # Regex for nginx access.log (combined format)
 NGINX_ACCESS = re.compile(
-    r'^(?P<ip>\S+)\s+-\s+(?P<user>\S+)\s+\[(?P<time>[^\]]+)\]\s+'
+    r"^(?P<ip>\S+)\s+-\s+(?P<user>\S+)\s+\[(?P<time>[^\]]+)\]\s+"
     r'"(?P<method>\S+)\s+(?P<path>\S+)\s+(?P<protocol>[^"]+)"\s+'
     r'(?P<status>\d+)\s+(?P<size>\d+)\s+"(?P<referer>[^"]*)"\s+"(?P<ua>[^"]*)"'
 )
 
 # Regex for nginx error.log
 NGINX_ERROR = re.compile(
-    r'^(?P<date>\d{4}/\d{2}/\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+'
-    r'\[(?P<level>\w+)\]\s+(?P<pid>\d+)#(?P<tid>\d+):\s+(?P<message>.+)$'
+    r"^(?P<date>\d{4}/\d{2}/\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+"
+    r"\[(?P<level>\w+)\]\s+(?P<pid>\d+)#(?P<tid>\d+):\s+(?P<message>.+)$"
 )
 
-NGINX_ERROR_CLIENT = re.compile(r'client:\s*(?P<ip>\S+)')
+NGINX_ERROR_CLIENT = re.compile(r"client:\s*(?P<ip>\S+)")
 
 
 def parse_auth_log(line: str) -> dict[str, Any] | None:
@@ -167,7 +162,9 @@ def parse_nginx_access(line: str) -> dict[str, Any] | None:
         timestamp = timestamp.replace(tzinfo=None)
     except ValueError:
         try:
-            timestamp = datetime.strptime(groups["time"].split()[0], "%d/%b/%Y:%H:%M:%S")
+            timestamp = datetime.strptime(
+                groups["time"].split()[0], "%d/%b/%Y:%H:%M:%S"
+            )
         except ValueError:
             return None
 
@@ -250,7 +247,7 @@ def parse_docker_json(line: str) -> dict[str, Any] | None:
         timestamp_str = data["time"]
         if "." in timestamp_str:
             timestamp_str = timestamp_str[:26] + "Z"
-        timestamp = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+        timestamp = datetime.fromisoformat(timestamp_str)
         timestamp = timestamp.replace(tzinfo=None)
     except (ValueError, TypeError):
         return None
