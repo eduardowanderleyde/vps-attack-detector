@@ -2,6 +2,23 @@
 
 Sistema de detecção de ataques para servidores Linux, construído como um pipeline de engenharia de dados com Apache Airflow e Apache Spark.
 
+<p>
+  <img src="https://img.shields.io/badge/status-em_produção-2ea44f?style=flat-square" />
+  <img src="https://img.shields.io/badge/Apache_Airflow-017CEE?style=flat-square&logo=apacheairflow&logoColor=white" />
+  <img src="https://img.shields.io/badge/Apache_Spark-E25A1C?style=flat-square&logo=apachespark&logoColor=white" />
+  <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white" />
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white" />
+</p>
+
+> **Rodando em produção** no meu próprio VPS. Em 4 dias (8 a 11/11/2026), o pipeline processou
+> **~6.000 eventos SSH** e gerou **54 alertas** (41 de *credential stuffing* e 13 de *SSH brute force*)
+> vindos de **52 IPs diferentes**.
+
+| 🔥 Ingestão | 🧹 Bronze → Silver → Gold | 🚨 Detecção | 📊 Saída |
+|---|---|---|---|
+| auth.log, fail2ban, nginx e Docker, a cada hora | Spark com camadas medalhão e GeoIP | brute force, credential stuffing e IPs de threat feeds | dashboard Streamlit, relatórios diários e blocklist |
+
 ## 📋 Índice
 
 - [O que é](#o-que-é)
