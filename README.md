@@ -15,6 +15,11 @@ Sistema de detecção de ataques para servidores Linux, construído como um pipe
 > **~6.000 eventos SSH** e gerou **54 alertas** (41 de *credential stuffing* e 13 de *SSH brute force*)
 > vindos de **52 IPs diferentes**.
 
+<p align="center">
+  <img src="docs/img/dashboard.png" alt="Dashboard do VPS Attack Detector" width="900" />
+  <br><sub>Dashboard Streamlit com dados de exemplo (IPs de documentação, RFC 5737).</sub>
+</p>
+
 | 🔥 Ingestão | 🧹 Bronze → Silver → Gold | 🚨 Detecção | 📊 Saída |
 |---|---|---|---|
 | auth.log, fail2ban, nginx e Docker, a cada hora | Spark com camadas medalhão e GeoIP | brute force, credential stuffing e IPs de threat feeds | dashboard Streamlit, relatórios diários e blocklist |
